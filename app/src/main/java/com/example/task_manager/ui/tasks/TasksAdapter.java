@@ -10,23 +10,36 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.task_manager.R;
-import com.example.task_manager.model.Task;
+import com.example.task_manager.data.TaskDao;
+import com.example.task_manager.data.TaskEntity;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHolder> {
 
-    public interface OnTaskInteractionListener {
-        void onTaskChecked(int position, boolean isChecked);
-        void onTaskLongPressed(int position);
+    public interface OnTaskLongClickListener {
+        void onTaskLongClick(TaskEntity task);
     }
 
-    private final List<Task> tasks;
-    private final OnTaskInteractionListener listener;
+    private final List<TaskEntity> items = new ArrayList<>();
+    private final TaskDao taskDao;
+    private final ExecutorService ioExecutor;
+    private final OnTaskLongClickListener longClickListener;
 
-    public TasksAdapter(List<Task> tasks, OnTaskInteractionListener listener) {
-        this.tasks = tasks;
-        this.listener = listener;
+    public TasksAdapter(TaskDao taskDao, ExecutorService ioExecutor, OnTaskLongClickListener longClickListener) {
+        this.taskDao = taskDao;
+        this.ioExecutor = ioExecutor;
+        this.longClickListener = longClickListener;
+    }
+
+    public void submitList(List<TaskEntity> newItems) {
+        items.clear();
+        if (newItems != null) {
+            items.addAll(newItems);
+        }
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -38,20 +51,19 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
     @Override
     public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
-        Task task = tasks.get(position);
+        TaskEntity task = items.get(position);
         holder.title.setText(task.getTitle());
         holder.checkBox.setOnCheckedChangeListener(null);
         holder.checkBox.setChecked(task.isDone());
 
         holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (listener != null) {
-                listener.onTaskChecked(holder.getAdapterPosition(), isChecked);
-            }
+            task.setDone(isChecked);
+            ioExecutor.execute(() -> taskDao.update(task));
         });
 
         holder.itemView.setOnLongClickListener(v -> {
-            if (listener != null) {
-                listener.onTaskLongPressed(holder.getAdapterPosition());
+            if (longClickListener != null) {
+                longClickListener.onTaskLongClick(task);
             }
             return true;
         });
@@ -59,7 +71,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
     @Override
     public int getItemCount() {
-        return tasks.size();
+        return items.size();
     }
 
     static class TaskViewHolder extends RecyclerView.ViewHolder {

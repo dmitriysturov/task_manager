@@ -15,16 +15,20 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.task_manager.R;
+import com.example.task_manager.data.AppDatabase;
+import com.example.task_manager.data.TaskDao;
+import com.example.task_manager.data.TaskEntity;
 import com.example.task_manager.databinding.FragmentTasksBinding;
-import com.example.task_manager.model.Task;
 
-import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class TasksFragment extends Fragment implements TasksAdapter.OnTaskInteractionListener {
+public class TasksFragment extends Fragment {
 
     private FragmentTasksBinding binding;
-    private final ArrayList<Task> tasks = new ArrayList<>();
     private TasksAdapter adapter;
+    private TaskDao taskDao;
+    private ExecutorService ioExecutor;
 
     @Nullable
     @Override
@@ -36,15 +40,22 @@ public class TasksFragment extends Fragment implements TasksAdapter.OnTaskIntera
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        taskDao = AppDatabase.getInstance(requireContext()).taskDao();
+        ioExecutor = Executors.newSingleThreadExecutor();
         setupRecyclerView();
+        observeTasks();
         setupFab();
     }
 
     private void setupRecyclerView() {
         RecyclerView recyclerView = binding.tasksList;
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new TasksAdapter(tasks, this);
+        adapter = new TasksAdapter(taskDao, ioExecutor, this::onTaskLongPressed);
         recyclerView.setAdapter(adapter);
+    }
+
+    private void observeTasks() {
+        taskDao.observeAll().observe(getViewLifecycleOwner(), adapter::submitList);
     }
 
     private void setupFab() {
@@ -68,41 +79,33 @@ public class TasksFragment extends Fragment implements TasksAdapter.OnTaskIntera
         if (TextUtils.isEmpty(title.trim())) {
             return;
         }
-        Task task = new Task(title.trim());
-        tasks.add(task);
-        adapter.notifyItemInserted(tasks.size() - 1);
+        TaskEntity task = new TaskEntity(title.trim(), false);
+        ioExecutor.execute(() -> taskDao.insert(task));
     }
 
-    @Override
-    public void onTaskChecked(int position, boolean isChecked) {
-        if (position < 0 || position >= tasks.size()) {
-            return;
-        }
-        tasks.get(position).setDone(isChecked);
-        adapter.notifyItemChanged(position);
-    }
-
-    @Override
-    public void onTaskLongPressed(int position) {
-        if (position < 0 || position >= tasks.size()) {
-            return;
-        }
-
+    private void onTaskLongPressed(TaskEntity task) {
         new AlertDialog.Builder(requireContext())
                 .setMessage(R.string.delete_task_prompt)
-                .setPositiveButton(R.string.delete, (dialog, which) -> removeTask(position))
+                .setPositiveButton(R.string.delete, (dialog, which) -> removeTask(task))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
-    private void removeTask(int position) {
-        tasks.remove(position);
-        adapter.notifyItemRemoved(position);
+    private void removeTask(TaskEntity task) {
+        ioExecutor.execute(() -> taskDao.delete(task));
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (ioExecutor != null && !ioExecutor.isShutdown()) {
+            ioExecutor.shutdown();
+        }
     }
 }
