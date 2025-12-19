@@ -48,10 +48,8 @@ public class TasksFragment extends Fragment implements TasksAdapter.OnTaskIntera
     }
 
     private void setupFab() {
-        View fab = requireActivity().findViewById(R.id.fab);
-        if (fab != null) {
-            fab.setOnClickListener(v -> showAddTaskDialog());
-        }
+        View fab = binding.fab;
+        fab.setOnClickListener(v -> showAddTaskDialog());
     }
 
     private void showAddTaskDialog() {
@@ -81,6 +79,7 @@ public class TasksFragment extends Fragment implements TasksAdapter.OnTaskIntera
             return;
         }
         tasks.get(position).setDone(isChecked);
+        adapter.notifyItemChanged(position);
     }
 
     @Override
