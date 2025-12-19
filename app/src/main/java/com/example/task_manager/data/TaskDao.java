@@ -12,7 +12,7 @@ import java.util.List;
 @Dao
 public interface TaskDao {
 
-    @Query("SELECT * FROM tasks ORDER BY done ASC, id DESC")
+    @Query("SELECT * FROM tasks ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeAll();
 
     @Insert

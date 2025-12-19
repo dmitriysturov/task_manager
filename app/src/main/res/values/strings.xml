@@ -14,4 +14,12 @@
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="delete_task_prompt">Delete?</string>
+    <string name="deadline_not_set">Дедлайн: не задан</string>
+    <string name="deadline_prefix">Дедлайн: %1$s</string>
+    <string name="select_deadline">Выбрать</string>
+    <string name="clear_deadline">Сбросить дедлайн</string>
+    <string name="edit_task_title">Edit Task</string>
+    <string name="save">Save</string>
+    <string name="no_deadline_label">Без дедлайна</string>
+    <string name="deadline_label">Дедлайн: %1$s</string>
 </resources>

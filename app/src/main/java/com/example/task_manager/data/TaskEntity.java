@@ -1,7 +1,9 @@
 package com.example.task_manager.data;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
 @Entity(tableName = "tasks")
@@ -15,9 +17,20 @@ public class TaskEntity {
 
     private boolean done;
 
-    public TaskEntity(@NonNull String title, boolean done) {
+    public long createdAt;
+
+    @Nullable
+    public Long dueAt;
+
+    public TaskEntity() {
+    }
+
+    @Ignore
+    public TaskEntity(@NonNull String title, boolean done, long createdAt, @Nullable Long dueAt) {
         this.title = title;
         this.done = done;
+        this.createdAt = createdAt;
+        this.dueAt = dueAt;
     }
 
     public long getId() {
@@ -43,5 +56,22 @@ public class TaskEntity {
 
     public void setDone(boolean done) {
         this.done = done;
+    }
+
+    public long getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(long createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    @Nullable
+    public Long getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(@Nullable Long dueAt) {
+        this.dueAt = dueAt;
     }
 }
