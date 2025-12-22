@@ -2,7 +2,9 @@ package com.example.task_manager;
 
 import android.os.Bundle;
 import android.view.Menu;
+import android.view.MenuItem;
 
+import androidx.annotation.NonNull;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -24,10 +26,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         setSupportActionBar(binding.toolbar);
-        mAppBarConfiguration = new AppBarConfiguration.Builder(R.id.nav_tasks).build();
+        mAppBarConfiguration = new AppBarConfiguration.Builder(R.id.nav_tasks, R.id.nav_calendar, R.id.nav_archive).build();
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-        binding.toolbar.setTitle(R.string.app_name);
     }
 
     @Override
@@ -35,6 +36,15 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
+        if (NavigationUI.onNavDestinationSelected(item, navController)) {
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

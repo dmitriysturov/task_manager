@@ -8,6 +8,16 @@
     <fragment
         android:id="@+id/nav_tasks"
         android:name="com.example.task_manager.ui.tasks.TasksFragment"
-        android:label="@string/app_name"
+        android:label="@string/menu_tasks"
         tools:layout="@layout/fragment_tasks" />
+    <fragment
+        android:id="@+id/nav_calendar"
+        android:name="com.example.task_manager.ui.calendar.CalendarFragment"
+        android:label="@string/calendar_title"
+        tools:layout="@layout/fragment_calendar" />
+    <fragment
+        android:id="@+id/nav_archive"
+        android:name="com.example.task_manager.ui.archive.ArchiveFragment"
+        android:label="@string/archive_title"
+        tools:layout="@layout/fragment_archive" />
 </navigation>

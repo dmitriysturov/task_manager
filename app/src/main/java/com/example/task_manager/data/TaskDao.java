@@ -23,6 +23,15 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
     TaskEntity getByIdSync(long id);
 
+    @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND dueAt BETWEEN :from AND :to ORDER BY dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> observeUndoneInRange(long from, long to);
+
+    @Query("SELECT * FROM tasks WHERE done = 1 AND dueAt IS NOT NULL AND dueAt BETWEEN :from AND :to ORDER BY dueAt DESC, createdAt DESC")
+    LiveData<List<TaskEntity>> observeDoneInRange(long from, long to);
+
+    @Query("SELECT * FROM tasks WHERE done = 1 ORDER BY COALESCE(dueAt, createdAt) DESC")
+    LiveData<List<TaskEntity>> observeDoneAll();
+
     @Insert
     long insert(TaskEntity task);
 

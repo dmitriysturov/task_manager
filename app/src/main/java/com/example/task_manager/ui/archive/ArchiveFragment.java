@@ -1,0 +1,172 @@
+package com.example.task_manager.ui.archive;
+
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
+import androidx.recyclerview.widget.LinearLayoutManager;
+
+import com.example.task_manager.R;
+import com.example.task_manager.data.AppDatabase;
+import com.example.task_manager.data.TaskDao;
+import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.databinding.FragmentArchiveBinding;
+import com.example.task_manager.ui.calendar.DaySection;
+import com.example.task_manager.ui.calendar.DaySectionsAdapter;
+import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class ArchiveFragment extends Fragment {
+
+    private enum Filter {
+        DONE_ONLY,
+        EVERYTHING_PAST
+    }
+
+    private FragmentArchiveBinding binding;
+    private TaskDao taskDao;
+    private ExecutorService ioExecutor;
+    private DaySectionsAdapter adapter;
+    private Filter filter = Filter.DONE_ONLY;
+    private LiveData<List<TaskEntity>> doneLiveData;
+    private LiveData<List<TaskEntity>> pastUndoneLiveData;
+    private final List<TaskEntity> doneTasksCache = new ArrayList<>();
+    private final List<TaskEntity> pastUndoneCache = new ArrayList<>();
+    private final ZoneId zoneId = ZoneId.systemDefault();
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        binding = FragmentArchiveBinding.inflate(inflater, container, false);
+        return binding.getRoot();
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        requireActivity().setTitle(R.string.archive_title);
+        taskDao = AppDatabase.getInstance(requireContext()).taskDao();
+        ioExecutor = Executors.newSingleThreadExecutor();
+        setupRecyclerView();
+        setupToggle();
+        observeData();
+    }
+
+    private void setupRecyclerView() {
+        binding.archiveList.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new DaySectionsAdapter(taskDao, ioExecutor, task -> startActivity(TaskDetailActivity.createIntent(requireContext(), task.getId())));
+        binding.archiveList.setAdapter(adapter);
+    }
+
+    private void setupToggle() {
+        binding.archiveFilterGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) {
+                return;
+            }
+            if (checkedId == R.id.filter_done_only) {
+                filter = Filter.DONE_ONLY;
+            } else if (checkedId == R.id.filter_all_past) {
+                filter = Filter.EVERYTHING_PAST;
+            }
+            rebuildSections();
+        });
+        binding.archiveFilterGroup.check(R.id.filter_done_only);
+    }
+
+    private void observeData() {
+        long startOfToday = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli();
+        doneLiveData = taskDao.observeDoneAll();
+        pastUndoneLiveData = taskDao.observeUndoneInRange(0, startOfToday - 1);
+
+        doneLiveData.observe(getViewLifecycleOwner(), tasks -> {
+            doneTasksCache.clear();
+            if (tasks != null) {
+                doneTasksCache.addAll(tasks);
+            }
+            rebuildSections();
+        });
+
+        pastUndoneLiveData.observe(getViewLifecycleOwner(), tasks -> {
+            pastUndoneCache.clear();
+            if (tasks != null) {
+                pastUndoneCache.addAll(tasks);
+            }
+            rebuildSections();
+        });
+    }
+
+    private void rebuildSections() {
+        List<TaskEntity> tasksForDisplay = new ArrayList<>();
+        long startOfToday = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli();
+        if (filter == Filter.DONE_ONLY) {
+            tasksForDisplay.addAll(doneTasksCache);
+        } else {
+            for (TaskEntity done : doneTasksCache) {
+                long ts = done.getDueAt() != null ? done.getDueAt() : done.getCreatedAt();
+                if (ts < startOfToday) {
+                    tasksForDisplay.add(done);
+                }
+            }
+            tasksForDisplay.addAll(pastUndoneCache);
+        }
+
+        tasksForDisplay.sort((a, b) -> Long.compare(getTaskTime(b), getTaskTime(a)));
+
+        Map<LocalDate, List<TaskEntity>> grouped = new HashMap<>();
+        for (TaskEntity task : tasksForDisplay) {
+            LocalDate day = LocalDate.ofInstant(Instant.ofEpochMilli(getTaskTime(task)), zoneId);
+            List<TaskEntity> bucket = grouped.get(day);
+            if (bucket == null) {
+                bucket = new ArrayList<>();
+                grouped.put(day, bucket);
+            }
+            bucket.add(task);
+        }
+
+        List<LocalDate> days = new ArrayList<>(grouped.keySet());
+        days.sort(Comparator.reverseOrder());
+
+        List<DaySection> sections = new ArrayList<>();
+        for (LocalDate day : days) {
+            sections.add(new DaySection(day, grouped.get(day)));
+        }
+
+        adapter.submitList(sections);
+        boolean isEmpty = tasksForDisplay.isEmpty();
+        binding.archiveEmptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        binding.archiveList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private long getTaskTime(TaskEntity task) {
+        return task.getDueAt() != null ? task.getDueAt() : task.getCreatedAt();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (ioExecutor != null && !ioExecutor.isShutdown()) {
+            ioExecutor.shutdown();
+        }
+    }
+}
