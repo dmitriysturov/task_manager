@@ -25,7 +25,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.view.MenuHost;
+import androidx.core.view.MenuProvider;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -82,7 +85,7 @@ public class TasksFragment extends Fragment {
     private LiveData<List<TaskWithSubtasks>> tasksLiveData;
     @Nullable
     private Long selectedGroupId;
-    private ArrayAdapter<String> groupAdapter;
+    private ArrayAdapter<GroupItem> groupAdapter;
     private final List<GroupItem> groupItems = new ArrayList<>();
     private SharedPreferences preferences;
     private String currentQuery = "";
@@ -111,6 +114,7 @@ public class TasksFragment extends Fragment {
         setupGroupSelector();
         setupRecyclerView();
         observeTasks();
+        setupMenu();
         setupFab();
     }
 
@@ -496,8 +500,10 @@ public class TasksFragment extends Fragment {
         binding.groupSelector.setAdapter(groupAdapter);
         binding.groupSelector.setOnClickListener(v -> binding.groupSelector.showDropDown());
         binding.groupSelector.setOnItemClickListener((parent, view, position, id) -> {
-            GroupItem item = groupItems.get(position);
-            updateSelectedGroup(item.id, true);
+            GroupItem item = groupAdapter.getItem(position);
+            if (item != null) {
+                updateSelectedGroup(item.id, true);
+            }
         });
 
         groupDao.observeAllOrdered().observe(getViewLifecycleOwner(), groups -> {
@@ -520,7 +526,7 @@ public class TasksFragment extends Fragment {
             names.add(item.name);
         }
         groupAdapter.clear();
-        groupAdapter.addAll(names);
+        groupAdapter.addAll(groupItems);
         groupAdapter.notifyDataSetChanged();
     }
 
@@ -580,44 +586,48 @@ public class TasksFragment extends Fragment {
         editor.apply();
     }
 
-    @Override
-    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
-        super.onCreateOptionsMenu(menu, inflater);
-        inflater.inflate(R.menu.menu_tasks_actions, menu);
-        MenuItem searchItem = menu.findItem(R.id.action_search);
-        SearchView searchView = (SearchView) searchItem.getActionView();
-        searchView.setQueryHint(getString(R.string.search_hint));
-        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+    private void setupMenu() {
+        MenuHost menuHost = requireActivity();
+        menuHost.addMenuProvider(new MenuProvider() {
             @Override
-            public boolean onQueryTextSubmit(String query) {
-                applyQuery(query);
-                return true;
+            public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
+                menuInflater.inflate(R.menu.menu_tasks_actions, menu);
+                MenuItem searchItem = menu.findItem(R.id.action_search);
+                SearchView searchView = (SearchView) searchItem.getActionView();
+                searchView.setQueryHint(getString(R.string.search_hint));
+                searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                    @Override
+                    public boolean onQueryTextSubmit(String query) {
+                        applyQuery(query);
+                        return true;
+                    }
+
+                    @Override
+                    public boolean onQueryTextChange(String newText) {
+                        applyQuery(newText);
+                        return true;
+                    }
+                });
+                searchView.setOnCloseListener(() -> {
+                    applyQuery("");
+                    return false;
+                });
+                if (!TextUtils.isEmpty(currentQuery)) {
+                    searchItem.expandActionView();
+                    searchView.setQuery(currentQuery, false);
+                    searchView.clearFocus();
+                }
             }
 
             @Override
-            public boolean onQueryTextChange(String newText) {
-                applyQuery(newText);
-                return true;
+            public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
+                if (menuItem.getItemId() == R.id.action_groups) {
+                    startActivity(GroupsActivity.createIntent(requireContext()));
+                    return true;
+                }
+                return false;
             }
-        });
-        searchView.setOnCloseListener(() -> {
-            applyQuery("");
-            return false;
-        });
-        if (!TextUtils.isEmpty(currentQuery)) {
-            searchItem.expandActionView();
-            searchView.setQuery(currentQuery, false);
-            searchView.clearFocus();
-        }
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_groups) {
-            startActivity(GroupsActivity.createIntent(requireContext()));
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+        }, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
     }
 
     @Override
@@ -648,6 +658,11 @@ public class TasksFragment extends Fragment {
         GroupItem(@Nullable Long id, String name) {
             this.id = id;
             this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }
