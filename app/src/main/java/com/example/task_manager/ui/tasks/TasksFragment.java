@@ -21,8 +21,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.task_manager.R;
 import com.example.task_manager.data.AppDatabase;
+import com.example.task_manager.data.SubtaskDao;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
 import com.example.task_manager.databinding.FragmentTasksBinding;
 
 import java.text.SimpleDateFormat;
@@ -36,6 +38,7 @@ public class TasksFragment extends Fragment {
     private FragmentTasksBinding binding;
     private TasksAdapter adapter;
     private TaskDao taskDao;
+    private SubtaskDao subtaskDao;
     private ExecutorService ioExecutor;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
 
@@ -50,6 +53,7 @@ public class TasksFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         taskDao = AppDatabase.getInstance(requireContext()).taskDao();
+        subtaskDao = AppDatabase.getInstance(requireContext()).subtaskDao();
         ioExecutor = Executors.newSingleThreadExecutor();
         setupRecyclerView();
         observeTasks();
@@ -59,12 +63,12 @@ public class TasksFragment extends Fragment {
     private void setupRecyclerView() {
         RecyclerView recyclerView = binding.tasksList;
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new TasksAdapter(taskDao, ioExecutor, this::onTaskLongPressed, this::onTaskClicked);
+        adapter = new TasksAdapter(taskDao, subtaskDao, ioExecutor, this::onTaskLongPressed, this::onTaskClicked);
         recyclerView.setAdapter(adapter);
     }
 
     private void observeTasks() {
-        taskDao.observeAll().observe(getViewLifecycleOwner(), adapter::submitList);
+        taskDao.observeAllWithSubtasks().observe(getViewLifecycleOwner(), adapter::submitList);
     }
 
     private void setupFab() {
@@ -165,7 +169,7 @@ public class TasksFragment extends Fragment {
     }
 
     private void onTaskClicked(TaskEntity task) {
-        showTaskDialog(task);
+        startActivity(TaskDetailActivity.createIntent(requireContext(), task.getId()));
     }
 
     private void removeTask(TaskEntity task) {

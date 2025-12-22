@@ -22,15 +22,24 @@ public class TaskEntity {
     @Nullable
     public Long dueAt;
 
+    @NonNull
+    public String description = "";
+
     public TaskEntity() {
     }
 
     @Ignore
     public TaskEntity(@NonNull String title, boolean done, long createdAt, @Nullable Long dueAt) {
+        this(title, done, createdAt, dueAt, "");
+    }
+
+    @Ignore
+    public TaskEntity(@NonNull String title, boolean done, long createdAt, @Nullable Long dueAt, @NonNull String description) {
         this.title = title;
         this.done = done;
         this.createdAt = createdAt;
         this.dueAt = dueAt;
+        this.description = description;
     }
 
     public long getId() {
@@ -73,5 +82,14 @@ public class TaskEntity {
 
     public void setDueAt(@Nullable Long dueAt) {
         this.dueAt = dueAt;
+    }
+
+    @NonNull
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(@NonNull String description) {
+        this.description = description;
     }
 }

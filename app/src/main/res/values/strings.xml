@@ -22,4 +22,14 @@
     <string name="save">Save</string>
     <string name="no_deadline_label">Без дедлайна</string>
     <string name="deadline_label">Дедлайн: %1$s</string>
+    <string name="expand_collapse">Развернуть/Свернуть</string>
+    <string name="add_subtask">+ Подзадача</string>
+    <string name="subtask_title_hint">Название подзадачи</string>
+    <string name="delete_subtask_prompt">Удалить подзадачу?</string>
+    <string name="task_detail_title">Задача</string>
+    <string name="description_hint">Описание</string>
+    <string name="select_deadline_title">Выбрать дедлайн</string>
+    <string name="reset_deadline">Сбросить</string>
+    <string name="save_task">Сохранить</string>
+    <string name="add_subtask_title">Добавить подзадачу</string>
 </resources>
