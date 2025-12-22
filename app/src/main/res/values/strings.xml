@@ -71,4 +71,7 @@
     <string name="rename_group">Переименовать группу</string>
     <string name="delete_group_prompt">Удалить группу? Задачи перейдут во \"Входящие\".</string>
     <string name="groups_empty">Группы не созданы</string>
+    <string name="search_hint">Поиск задач</string>
+    <string name="empty_search_title">Ничего не найдено</string>
+    <string name="empty_search_subtitle">Попробуйте изменить запрос</string>
 </resources>

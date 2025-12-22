@@ -24,6 +24,7 @@ import android.widget.ArrayAdapter;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -58,6 +59,7 @@ public class TasksFragment extends Fragment {
 
     private static final String PREFS_NAME = "tasks_prefs";
     private static final String PREF_SELECTED_GROUP_ID = "selected_group_id";
+    private static final String STATE_QUERY = "state_query";
 
     private FragmentTasksBinding binding;
     private TasksAdapter adapter;
@@ -83,6 +85,7 @@ public class TasksFragment extends Fragment {
     private ArrayAdapter<String> groupAdapter;
     private final List<GroupItem> groupItems = new ArrayList<>();
     private SharedPreferences preferences;
+    private String currentQuery = "";
 
     @Nullable
     @Override
@@ -100,6 +103,9 @@ public class TasksFragment extends Fragment {
         groupDao = AppDatabase.getInstance(requireContext()).groupDao();
         ioExecutor = Executors.newSingleThreadExecutor();
         preferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (savedInstanceState != null) {
+            currentQuery = savedInstanceState.getString(STATE_QUERY, "");
+        }
         restoreSelectedGroup();
         binding.emptyState.setVisibility(View.GONE);
         setupGroupSelector();
@@ -121,13 +127,48 @@ public class TasksFragment extends Fragment {
         if (tasksLiveData != null) {
             tasksLiveData.removeObservers(getViewLifecycleOwner());
         }
-        tasksLiveData = taskDao.observeAllWithSubtasksByGroup(selectedGroupId);
+        tasksLiveData = resolveTasksSource();
         tasksLiveData.observe(getViewLifecycleOwner(), tasks -> {
             adapter.submitList(tasks);
             boolean isEmpty = tasks == null || tasks.isEmpty();
             binding.tasksList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
             binding.emptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+            updateEmptyStateText(isEmpty);
         });
+    }
+
+    private LiveData<List<TaskWithSubtasks>> resolveTasksSource() {
+        if (TextUtils.isEmpty(currentQuery)) {
+            return taskDao.observeAllWithSubtasksByGroup(selectedGroupId);
+        }
+        if (selectedGroupId == null) {
+            return taskDao.searchUndoneWithSubtasksInInbox(currentQuery);
+        }
+        return taskDao.searchUndoneWithSubtasksInGroup(selectedGroupId, currentQuery);
+    }
+
+    private void updateEmptyStateText(boolean isEmpty) {
+        if (!isEmpty) {
+            binding.emptyTitle.setText(R.string.empty_tasks_title);
+            binding.emptySubtitle.setText(R.string.empty_tasks_subtitle);
+            return;
+        }
+        if (TextUtils.isEmpty(currentQuery)) {
+            binding.emptyTitle.setText(R.string.empty_tasks_title);
+            binding.emptySubtitle.setText(R.string.empty_tasks_subtitle);
+        } else {
+            binding.emptyTitle.setText(R.string.empty_search_title);
+            binding.emptySubtitle.setText(R.string.empty_search_subtitle);
+        }
+    }
+
+    private void applyQuery(@Nullable String query) {
+        String normalized = query == null ? "" : query.trim();
+        if (normalized.equals(currentQuery)) {
+            return;
+        }
+        currentQuery = normalized;
+        observeTasks();
     }
 
     private void setupFab() {
@@ -543,6 +584,31 @@ public class TasksFragment extends Fragment {
     public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.menu_tasks_actions, menu);
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setQueryHint(getString(R.string.search_hint));
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                applyQuery(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                applyQuery(newText);
+                return true;
+            }
+        });
+        searchView.setOnCloseListener(() -> {
+            applyQuery("");
+            return false;
+        });
+        if (!TextUtils.isEmpty(currentQuery)) {
+            searchItem.expandActionView();
+            searchView.setQuery(currentQuery, false);
+            searchView.clearFocus();
+        }
     }
 
     @Override
@@ -552,6 +618,12 @@ public class TasksFragment extends Fragment {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_QUERY, currentQuery);
     }
 
     @Override

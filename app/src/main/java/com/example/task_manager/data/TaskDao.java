@@ -34,6 +34,27 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneAll();
 
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> searchUndoneInInbox(String q);
+
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> searchUndoneInGroup(long groupId, String q);
+
+    @Query("SELECT * FROM tasks WHERE done = 0 AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> searchUndoneAll(String q);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksInInbox(String q);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksInGroup(long groupId, String q);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksAll(String q);
+
     @Query("SELECT * FROM tasks WHERE done = 0 AND ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneByGroup(@Nullable Long groupId);
 

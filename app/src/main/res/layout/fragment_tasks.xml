@@ -51,6 +51,7 @@
         app:layout_constraintTop_toBottomOf="@id/group_selector_layout">
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/empty_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/empty_tasks_title"
@@ -58,6 +59,7 @@
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/empty_subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
