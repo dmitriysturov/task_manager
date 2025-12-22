@@ -6,7 +6,6 @@
     <string name="nav_header_subtitle">android.studio@android.com</string>
     <string name="nav_header_desc">Navigation header</string>
     <string name="action_settings">Settings</string>
-
     <string name="menu_tasks">Список</string>
     <string name="menu_calendar">Календарь</string>
     <string name="menu_archive">Архив</string>
@@ -63,4 +62,13 @@
     <string name="choose_quick_action">Быстрое действие</string>
     <string name="task_snoozed_hour">Задача отложена на час</string>
     <string name="task_snoozed_tomorrow">Задача перенесена на завтра</string>
+    <string name="menu_groups">Группы…</string>
+    <string name="group_selector_hint">Группа</string>
+    <string name="group_inbox">Входящие</string>
+    <string name="groups_title">Группы</string>
+    <string name="add_group">Добавить группу</string>
+    <string name="group_name_hint">Название группы</string>
+    <string name="rename_group">Переименовать группу</string>
+    <string name="delete_group_prompt">Удалить группу? Задачи перейдут во \"Входящие\".</string>
+    <string name="groups_empty">Группы не созданы</string>
 </resources>

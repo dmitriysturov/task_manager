@@ -8,17 +8,18 @@
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="77dp"
             android:minHeight="?attr/actionBarSize"
             android:paddingHorizontal="8dp"
-            app:titleCentered="true"
-            app:title="@string/app_name" />
+            app:title="@string/app_name"
+            app:titleCentered="true" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <fragment

@@ -1,5 +1,6 @@
 package com.example.task_manager.data;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Delete;
@@ -17,6 +18,10 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskWithSubtasks>> observeAllWithSubtasks();
 
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithSubtasks>> observeAllWithSubtasksByGroup(@Nullable Long groupId);
+
     @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
     LiveData<TaskEntity> observeById(long id);
 
@@ -25,6 +30,12 @@ public interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND dueAt BETWEEN :from AND :to ORDER BY dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneInRange(long from, long to);
+
+    @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> observeUndoneAll();
+
+    @Query("SELECT * FROM tasks WHERE done = 0 AND ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> observeUndoneByGroup(@Nullable Long groupId);
 
     @Query("SELECT * FROM tasks WHERE done = 1 AND dueAt IS NOT NULL AND dueAt BETWEEN :from AND :to ORDER BY dueAt DESC, createdAt DESC")
     LiveData<List<TaskEntity>> observeDoneInRange(long from, long to);
@@ -40,4 +51,7 @@ public interface TaskDao {
 
     @Delete
     void delete(TaskEntity task);
+
+    @Query("UPDATE tasks SET groupId = NULL WHERE groupId = :groupId")
+    void clearGroupId(long groupId);
 }

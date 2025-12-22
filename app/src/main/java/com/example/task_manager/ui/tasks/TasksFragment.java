@@ -3,33 +3,43 @@ package com.example.task_manager.ui.tasks;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.widget.ArrayAdapter;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.task_manager.R;
 import com.example.task_manager.data.AppDatabase;
+import com.example.task_manager.data.GroupDao;
+import com.example.task_manager.data.GroupEntity;
 import com.example.task_manager.data.SubtaskDao;
 import com.example.task_manager.data.SubtaskEntity;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
 import com.example.task_manager.data.TaskWithSubtasks;
+import com.example.task_manager.ui.groups.GroupsActivity;
 import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
 import com.example.task_manager.databinding.FragmentTasksBinding;
 import com.google.android.material.chip.Chip;
@@ -46,10 +56,14 @@ import java.util.List;
 
 public class TasksFragment extends Fragment {
 
+    private static final String PREFS_NAME = "tasks_prefs";
+    private static final String PREF_SELECTED_GROUP_ID = "selected_group_id";
+
     private FragmentTasksBinding binding;
     private TasksAdapter adapter;
     private TaskDao taskDao;
     private SubtaskDao subtaskDao;
+    private GroupDao groupDao;
     private ExecutorService ioExecutor;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
     private final Paint swipePaint = new Paint();
@@ -63,6 +77,14 @@ public class TasksFragment extends Fragment {
     private android.graphics.drawable.Drawable scheduleIcon;
 
     @Nullable
+    private LiveData<List<TaskWithSubtasks>> tasksLiveData;
+    @Nullable
+    private Long selectedGroupId;
+    private ArrayAdapter<String> groupAdapter;
+    private final List<GroupItem> groupItems = new ArrayList<>();
+    private SharedPreferences preferences;
+
+    @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         binding = FragmentTasksBinding.inflate(inflater, container, false);
@@ -72,10 +94,15 @@ public class TasksFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        setHasOptionsMenu(true);
         taskDao = AppDatabase.getInstance(requireContext()).taskDao();
         subtaskDao = AppDatabase.getInstance(requireContext()).subtaskDao();
+        groupDao = AppDatabase.getInstance(requireContext()).groupDao();
         ioExecutor = Executors.newSingleThreadExecutor();
+        preferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        restoreSelectedGroup();
         binding.emptyState.setVisibility(View.GONE);
+        setupGroupSelector();
         setupRecyclerView();
         observeTasks();
         setupFab();
@@ -91,7 +118,11 @@ public class TasksFragment extends Fragment {
     }
 
     private void observeTasks() {
-        taskDao.observeAllWithSubtasks().observe(getViewLifecycleOwner(), tasks -> {
+        if (tasksLiveData != null) {
+            tasksLiveData.removeObservers(getViewLifecycleOwner());
+        }
+        tasksLiveData = taskDao.observeAllWithSubtasksByGroup(selectedGroupId);
+        tasksLiveData.observe(getViewLifecycleOwner(), tasks -> {
             adapter.submitList(tasks);
             boolean isEmpty = tasks == null || tasks.isEmpty();
             binding.tasksList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
@@ -135,6 +166,7 @@ public class TasksFragment extends Fragment {
                     }
                     if (existingTask == null) {
                         TaskEntity task = new TaskEntity(title, false, System.currentTimeMillis(), selectedDueAt[0]);
+                        task.setGroupId(selectedGroupId);
                         ioExecutor.execute(() -> taskDao.insert(task));
                     } else {
                         existingTask.setTitle(title);
@@ -414,7 +446,112 @@ public class TasksFragment extends Fragment {
         if (keepId) {
             copy.setId(task.getId());
         }
+        copy.setGroupId(task.getGroupId());
         return copy;
+    }
+
+    private void setupGroupSelector() {
+        groupAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
+        binding.groupSelector.setAdapter(groupAdapter);
+        binding.groupSelector.setOnClickListener(v -> binding.groupSelector.showDropDown());
+        binding.groupSelector.setOnItemClickListener((parent, view, position, id) -> {
+            GroupItem item = groupItems.get(position);
+            updateSelectedGroup(item.id, true);
+        });
+
+        groupDao.observeAllOrdered().observe(getViewLifecycleOwner(), groups -> {
+            groupItems.clear();
+            groupItems.add(new GroupItem(null, getString(R.string.group_inbox)));
+            if (groups != null) {
+                for (GroupEntity group : groups) {
+                    groupItems.add(new GroupItem(group.getId(), group.getName()));
+                }
+            }
+            updateGroupAdapter();
+            applySelectionToDropdown(false);
+        });
+        applySelectionToDropdown(false);
+    }
+
+    private void updateGroupAdapter() {
+        List<String> names = new ArrayList<>();
+        for (GroupItem item : groupItems) {
+            names.add(item.name);
+        }
+        groupAdapter.clear();
+        groupAdapter.addAll(names);
+        groupAdapter.notifyDataSetChanged();
+    }
+
+    private void updateSelectedGroup(@Nullable Long groupId, boolean fromUser) {
+        boolean changed = (selectedGroupId == null && groupId != null) || (selectedGroupId != null && !selectedGroupId.equals(groupId));
+        selectedGroupId = groupId;
+        saveSelectedGroup();
+        if (changed || fromUser) {
+            observeTasks();
+        }
+        applySelectionToDropdown(!fromUser);
+    }
+
+    private void applySelectionToDropdown(boolean triggerObserve) {
+        if (groupItems.isEmpty()) {
+            return;
+        }
+        Long previousSelection = selectedGroupId;
+        int index = 0;
+        boolean found = false;
+        for (int i = 0; i < groupItems.size(); i++) {
+            GroupItem item = groupItems.get(i);
+            if ((item.id == null && selectedGroupId == null) || (item.id != null && item.id.equals(selectedGroupId))) {
+                index = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            selectedGroupId = null;
+            saveSelectedGroup();
+            if (triggerObserve || previousSelection != null) {
+                observeTasks();
+            }
+        }
+        if (groupItems.size() > index) {
+            GroupItem selected = groupItems.get(index);
+            binding.groupSelector.setText(selected.name, false);
+        }
+    }
+
+    private void restoreSelectedGroup() {
+        if (preferences.contains(PREF_SELECTED_GROUP_ID)) {
+            selectedGroupId = preferences.getLong(PREF_SELECTED_GROUP_ID, 0);
+        } else {
+            selectedGroupId = null;
+        }
+    }
+
+    private void saveSelectedGroup() {
+        SharedPreferences.Editor editor = preferences.edit();
+        if (selectedGroupId == null) {
+            editor.remove(PREF_SELECTED_GROUP_ID);
+        } else {
+            editor.putLong(PREF_SELECTED_GROUP_ID, selectedGroupId);
+        }
+        editor.apply();
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.menu_tasks_actions, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_groups) {
+            startActivity(GroupsActivity.createIntent(requireContext()));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -428,6 +565,17 @@ public class TasksFragment extends Fragment {
         super.onDestroy();
         if (ioExecutor != null && !ioExecutor.isShutdown()) {
             ioExecutor.shutdown();
+        }
+    }
+
+    private static class GroupItem {
+        @Nullable
+        final Long id;
+        final String name;
+
+        GroupItem(@Nullable Long id, String name) {
+            this.id = id;
+            this.name = name;
         }
     }
 }

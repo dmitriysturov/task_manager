@@ -25,6 +25,9 @@ public class TaskEntity {
     @NonNull
     public String description = "";
 
+    @Nullable
+    public Long groupId;
+
     public TaskEntity() {
     }
 
@@ -91,5 +94,14 @@ public class TaskEntity {
 
     public void setDescription(@NonNull String description) {
         this.description = description;
+    }
+
+    @Nullable
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(@Nullable Long groupId) {
+        this.groupId = groupId;
     }
 }

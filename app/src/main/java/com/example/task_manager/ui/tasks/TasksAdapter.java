@@ -250,6 +250,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
                     && ((oldTask.getDueAt() == null && newTask.getDueAt() == null) ||
                     (oldTask.getDueAt() != null && oldTask.getDueAt().equals(newTask.getDueAt())))
                     && oldTask.getDescription().equals(newTask.getDescription())
+                    && ((oldTask.getGroupId() == null && newTask.getGroupId() == null) ||
+                    (oldTask.getGroupId() != null && oldTask.getGroupId().equals(newTask.getGroupId())))
                     && oldTask.getCreatedAt() == newTask.getCreatedAt()
                     && subtasksEqual;
         }

@@ -19,6 +19,10 @@
             android:theme="@style/Theme.Task_manager.NoActionBar"
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
+            android:name=".ui.groups.GroupsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Task_manager.NoActionBar" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"

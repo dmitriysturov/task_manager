@@ -9,13 +9,14 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {TaskEntity.class, SubtaskEntity.class}, version = 3, exportSchema = false)
+@Database(entities = {TaskEntity.class, SubtaskEntity.class, GroupEntity.class}, version = 4, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
 
     public abstract TaskDao taskDao();
     public abstract SubtaskDao subtaskDao();
+    public abstract GroupDao groupDao();
 
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -34,6 +35,15 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `groups` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL DEFAULT 0, `orderIndex` INTEGER NOT NULL DEFAULT 0)");
+            database.execSQL("ALTER TABLE tasks ADD COLUMN groupId INTEGER");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_groupId ON tasks(groupId)");
+        }
+    };
+
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -43,7 +53,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                     AppDatabase.class,
                                     "tasks.db"
                             )
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                             .addCallback(new Callback() {
                                 @Override
                                 public void onOpen(@NonNull SupportSQLiteDatabase db) {
