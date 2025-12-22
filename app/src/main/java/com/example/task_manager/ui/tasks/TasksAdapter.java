@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -58,14 +59,19 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         this.ioExecutor = ioExecutor;
         this.longClickListener = longClickListener;
         this.clickListener = clickListener;
+        setHasStableIds(true);
     }
 
     public void submitList(List<TaskWithSubtasks> newItems) {
+        List<TaskWithSubtasks> safeNewItems = newItems == null ? new ArrayList<>() : new ArrayList<>(newItems);
+        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new TaskDiffCallback(items, safeNewItems));
         items.clear();
-        if (newItems != null) {
-            items.addAll(newItems);
-        }
-        notifyDataSetChanged();
+        items.addAll(safeNewItems);
+        diffResult.dispatchUpdatesTo(this);
+    }
+
+    public TaskWithSubtasks getItem(int position) {
+        return items.get(position);
     }
 
     @NonNull
@@ -83,28 +89,21 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         holder.checkBox.setOnCheckedChangeListener(null);
         holder.checkBox.setChecked(task.isDone());
         Long dueAt = task.getDueAt();
+        String createdAtFormatted = holder.itemView.getContext().getString(R.string.created_at_label, dateFormat.format(new Date(task.getCreatedAt())));
         if (dueAt != null) {
             String formatted = dateFormat.format(new Date(dueAt));
             boolean overdue = dueAt < System.currentTimeMillis();
-            int containerColor = MaterialColors.getColor(holder.deadlineChip,
-                    overdue ? com.google.android.material.R.attr.colorErrorContainer : com.google.android.material.R.attr.colorSecondaryContainer);
-            int onContainerColor = MaterialColors.getColor(holder.deadlineChip,
-                    overdue ? com.google.android.material.R.attr.colorOnErrorContainer : com.google.android.material.R.attr.colorOnSecondaryContainer);
-            holder.deadlineChip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
-            holder.deadlineChip.setTextColor(onContainerColor);
-            holder.deadlineChip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
-            holder.deadlineChip.setText(holder.itemView.getContext().getString(R.string.deadline_label, formatted));
-            holder.deadlineChip.setVisibility(View.VISIBLE);
+            int metaColor = MaterialColors.getColor(
+                    holder.metaText,
+                    overdue ? android.R.attr.colorError : com.google.android.material.R.attr.colorOnSurfaceVariant
+            );
+            String deadlineText = holder.itemView.getContext().getString(R.string.deadline_label, formatted);
+            holder.metaText.setText(holder.itemView.getContext().getString(R.string.deadline_with_created, deadlineText, createdAtFormatted));
+            holder.metaText.setTextColor(metaColor);
         } else {
-            holder.deadlineChip.setVisibility(View.GONE);
-        }
-
-        if (task.getCreatedAt() > 0) {
-            String formattedCreated = dateFormat.format(new Date(task.getCreatedAt()));
-            holder.createdAtText.setVisibility(View.VISIBLE);
-            holder.createdAtText.setText(holder.itemView.getContext().getString(R.string.created_at_label, formattedCreated));
-        } else {
-            holder.createdAtText.setVisibility(View.GONE);
+            String noDeadline = holder.itemView.getContext().getString(R.string.no_deadline_label);
+            holder.metaText.setText(holder.itemView.getContext().getString(R.string.no_deadline_with_created, noDeadline, createdAtFormatted));
+            holder.metaText.setTextColor(MaterialColors.getColor(holder.metaText, com.google.android.material.R.attr.colorOnSurfaceVariant));
         }
 
         holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -128,6 +127,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         boolean expanded = expandedTaskIds.contains(task.getId());
         holder.subtasksContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
         holder.expandButton.setRotation(expanded ? 180f : 0f);
+        holder.expandButton.setVisibility(View.VISIBLE);
 
         holder.expandButton.setOnClickListener(v -> {
             if (expanded) {
@@ -163,6 +163,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     }
 
     @Override
+    public long getItemId(int position) {
+        return items.get(position).task.getId();
+    }
+
+    @Override
     public int getItemCount() {
         return items.size();
     }
@@ -170,8 +175,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     class TaskViewHolder extends RecyclerView.ViewHolder {
         final MaterialCheckBox checkBox;
         final TextView title;
-        final Chip deadlineChip;
-        final TextView createdAtText;
+        final TextView metaText;
         final ImageButton expandButton;
         final View subtasksContainer;
         final RecyclerView subtasksList;
@@ -182,8 +186,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             super(itemView);
             checkBox = itemView.findViewById(R.id.task_checkbox);
             title = itemView.findViewById(R.id.task_title);
-            deadlineChip = itemView.findViewById(R.id.deadline_chip);
-            createdAtText = itemView.findViewById(R.id.created_at_text);
+            metaText = itemView.findViewById(R.id.meta_text);
             expandButton = itemView.findViewById(R.id.expand_button);
             subtasksContainer = itemView.findViewById(R.id.subtasks_container);
             subtasksList = itemView.findViewById(R.id.subtasks_list);
@@ -205,6 +208,67 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
         void bindSubtasks(List<SubtaskEntity> subtasks) {
             subtaskMiniAdapter.submitList(subtasks);
+        }
+    }
+
+    private static class TaskDiffCallback extends DiffUtil.Callback {
+        private final List<TaskWithSubtasks> oldList;
+        private final List<TaskWithSubtasks> newList;
+
+        TaskDiffCallback(List<TaskWithSubtasks> oldList, List<TaskWithSubtasks> newList) {
+            this.oldList = oldList;
+            this.newList = newList;
+        }
+
+        @Override
+        public int getOldListSize() {
+            return oldList.size();
+        }
+
+        @Override
+        public int getNewListSize() {
+            return newList.size();
+        }
+
+        @Override
+        public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+            return oldList.get(oldItemPosition).task.getId() == newList.get(newItemPosition).task.getId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+            TaskWithSubtasks oldItem = oldList.get(oldItemPosition);
+            TaskWithSubtasks newItem = newList.get(newItemPosition);
+            TaskEntity oldTask = oldItem.task;
+            TaskEntity newTask = newItem.task;
+            boolean subtasksEqual = areSubtasksSame(oldItem.subtasks, newItem.subtasks);
+            return oldTask.isDone() == newTask.isDone()
+                    && oldTask.getTitle().equals(newTask.getTitle())
+                    && ((oldTask.getDueAt() == null && newTask.getDueAt() == null) ||
+                    (oldTask.getDueAt() != null && oldTask.getDueAt().equals(newTask.getDueAt())))
+                    && oldTask.getDescription().equals(newTask.getDescription())
+                    && oldTask.getCreatedAt() == newTask.getCreatedAt()
+                    && subtasksEqual;
+        }
+
+        private boolean areSubtasksSame(List<SubtaskEntity> oldSubtasks, List<SubtaskEntity> newSubtasks) {
+            if (oldSubtasks == null && newSubtasks == null) {
+                return true;
+            }
+            if (oldSubtasks == null || newSubtasks == null || oldSubtasks.size() != newSubtasks.size()) {
+                return false;
+            }
+            for (int i = 0; i < oldSubtasks.size(); i++) {
+                SubtaskEntity oldSubtask = oldSubtasks.get(i);
+                SubtaskEntity newSubtask = newSubtasks.get(i);
+                if (oldSubtask.id != newSubtask.id
+                        || oldSubtask.done != newSubtask.done
+                        || oldSubtask.updatedAt != newSubtask.updatedAt
+                        || !oldSubtask.title.equals(newSubtask.title)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

@@ -37,6 +37,8 @@
     <string name="empty_tasks_title">Нет задач</string>
     <string name="empty_tasks_subtitle">Создайте первую задачу, чтобы начать планировать день</string>
     <string name="created_at_label">Создано: %1$s</string>
+    <string name="deadline_with_created">%1$s \u2022 %2$s</string>
+    <string name="no_deadline_with_created">%1$s \u2022 %2$s</string>
     <string name="add_task_cta">Добавить</string>
     <string name="subtasks_header">Подзадачи</string>
     <string name="calendar_week_title">Неделя: %1$s–%2$s</string>
@@ -53,4 +55,14 @@
     <string name="archive_empty">В архиве пока нет задач</string>
     <string name="archive_title">Архив</string>
     <string name="calendar_title">Календарь</string>
+    <string name="task_deleted">Задача удалена</string>
+    <string name="undo">Отменить</string>
+    <string name="task_marked_done">Отмечено выполненным</string>
+    <string name="task_returned">Возвращено</string>
+    <string name="mark_done">Выполнить</string>
+    <string name="snooze_one_hour">Отложить на 1 час</string>
+    <string name="snooze_tomorrow">Отложить на завтра (9:00)</string>
+    <string name="choose_quick_action">Быстрое действие</string>
+    <string name="task_snoozed_hour">Задача отложена на час</string>
+    <string name="task_snoozed_tomorrow">Задача перенесена на завтра</string>
 </resources>
