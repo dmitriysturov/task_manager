@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
@@ -90,20 +89,22 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         holder.checkBox.setChecked(task.isDone());
         Long dueAt = task.getDueAt();
         String createdAtFormatted = holder.itemView.getContext().getString(R.string.created_at_label, dateFormat.format(new Date(task.getCreatedAt())));
+        holder.createdText.setText(createdAtFormatted);
+        holder.createdText.setTextColor(MaterialColors.getColor(holder.createdText, com.google.android.material.R.attr.colorOnSurfaceVariant));
         if (dueAt != null) {
             String formatted = dateFormat.format(new Date(dueAt));
             boolean overdue = dueAt < System.currentTimeMillis();
-            int metaColor = MaterialColors.getColor(
-                    holder.metaText,
+            int deadlineColor = MaterialColors.getColor(
+                    holder.deadlineText,
                     overdue ? android.R.attr.colorError : com.google.android.material.R.attr.colorOnSurfaceVariant
             );
             String deadlineText = holder.itemView.getContext().getString(R.string.deadline_label, formatted);
-            holder.metaText.setText(holder.itemView.getContext().getString(R.string.deadline_with_created, deadlineText, createdAtFormatted));
-            holder.metaText.setTextColor(metaColor);
+            holder.deadlineText.setText(deadlineText);
+            holder.deadlineText.setTextColor(deadlineColor);
         } else {
             String noDeadline = holder.itemView.getContext().getString(R.string.no_deadline_label);
-            holder.metaText.setText(holder.itemView.getContext().getString(R.string.no_deadline_with_created, noDeadline, createdAtFormatted));
-            holder.metaText.setTextColor(MaterialColors.getColor(holder.metaText, com.google.android.material.R.attr.colorOnSurfaceVariant));
+            holder.deadlineText.setText(noDeadline);
+            holder.deadlineText.setTextColor(MaterialColors.getColor(holder.deadlineText, com.google.android.material.R.attr.colorOnSurfaceVariant));
         }
 
         holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -175,7 +176,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     class TaskViewHolder extends RecyclerView.ViewHolder {
         final MaterialCheckBox checkBox;
         final TextView title;
-        final TextView metaText;
+        final TextView deadlineText;
+        final TextView createdText;
         final ImageButton expandButton;
         final View subtasksContainer;
         final RecyclerView subtasksList;
@@ -186,7 +188,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             super(itemView);
             checkBox = itemView.findViewById(R.id.task_checkbox);
             title = itemView.findViewById(R.id.task_title);
-            metaText = itemView.findViewById(R.id.meta_text);
+            deadlineText = itemView.findViewById(R.id.deadline_text);
+            createdText = itemView.findViewById(R.id.created_text);
             expandButton = itemView.findViewById(R.id.expand_button);
             subtasksContainer = itemView.findViewById(R.id.subtasks_container);
             subtasksList = itemView.findViewById(R.id.subtasks_list);

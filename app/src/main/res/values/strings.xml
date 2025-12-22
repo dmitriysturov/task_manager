@@ -37,8 +37,6 @@
     <string name="empty_tasks_title">Нет задач</string>
     <string name="empty_tasks_subtitle">Создайте первую задачу, чтобы начать планировать день</string>
     <string name="created_at_label">Создано: %1$s</string>
-    <string name="deadline_with_created">%1$s \u2022 %2$s</string>
-    <string name="no_deadline_with_created">%1$s \u2022 %2$s</string>
     <string name="add_task_cta">Добавить</string>
     <string name="subtasks_header">Подзадачи</string>
     <string name="calendar_week_title">Неделя: %1$s–%2$s</string>

@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="12dp"
         android:buttonTint="?attr/colorPrimary"
-        app:layout_constraintBottom_toBottomOf="@+id/meta_text"
+        app:layout_constraintBottom_toBottomOf="@+id/meta_container"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@+id/task_title" />
 
@@ -33,18 +33,35 @@
         app:layout_constraintStart_toEndOf="@id/task_checkbox"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/meta_text"
+    <LinearLayout
+        android:id="@+id/meta_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:orientation="vertical"
         app:layout_constraintEnd_toStartOf="@+id/expand_button"
         app:layout_constraintStart_toEndOf="@id/task_checkbox"
-        app:layout_constraintTop_toBottomOf="@id/task_title" />
+        app:layout_constraintTop_toBottomOf="@id/task_title">
+
+        <TextView
+            android:id="@+id/deadline_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <TextView
+            android:id="@+id/created_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
 
     <ImageButton
         android:id="@+id/expand_button"
@@ -54,7 +71,7 @@
         android:contentDescription="@string/expand_collapse"
         android:padding="8dp"
         android:tint="?attr/colorOnSurfaceVariant"
-        app:layout_constraintBottom_toBottomOf="@id/meta_text"
+        app:layout_constraintBottom_toBottomOf="@id/meta_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/task_title"
         app:srcCompat="@drawable/ic_chevron_down_24" />
@@ -70,7 +87,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@id/task_title"
-        app:layout_constraintTop_toBottomOf="@id/meta_text">
+        app:layout_constraintTop_toBottomOf="@id/meta_container">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/subtasks_list"
