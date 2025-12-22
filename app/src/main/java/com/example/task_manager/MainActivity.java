@@ -3,13 +3,10 @@ package com.example.task_manager;
 import android.os.Bundle;
 import android.view.Menu;
 
-import com.google.android.material.navigation.NavigationView;
-
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
-import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.task_manager.databinding.ActivityMainBinding;
@@ -26,19 +23,11 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        setSupportActionBar(binding.appBarMain.toolbar);
-        DrawerLayout drawer = binding.drawerLayout;
-        NavigationView navigationView = binding.navView;
-        // Passing each menu ID as a set of Ids because each
-        // menu should be considered as top level destinations.
-        mAppBarConfiguration = new AppBarConfiguration.Builder(
-                R.id.nav_tasks)
-                .setOpenableLayout(drawer)
-                .build();
+        setSupportActionBar(binding.toolbar);
+        mAppBarConfiguration = new AppBarConfiguration.Builder(R.id.nav_tasks).build();
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-        NavigationUI.setupWithNavController(navigationView, navController);
-        setTitle(R.string.app_name);
+        binding.toolbar.setTitle(R.string.app_name);
     }
 
     @Override

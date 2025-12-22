@@ -23,7 +23,7 @@
     <string name="no_deadline_label">Без дедлайна</string>
     <string name="deadline_label">Дедлайн: %1$s</string>
     <string name="expand_collapse">Развернуть/Свернуть</string>
-    <string name="add_subtask">+ Подзадача</string>
+    <string name="add_subtask">Подзадача</string>
     <string name="subtask_title_hint">Название подзадачи</string>
     <string name="delete_subtask_prompt">Удалить подзадачу?</string>
     <string name="task_detail_title">Задача</string>
@@ -32,4 +32,9 @@
     <string name="reset_deadline">Сбросить</string>
     <string name="save_task">Сохранить</string>
     <string name="add_subtask_title">Добавить подзадачу</string>
+    <string name="empty_tasks_title">Нет задач</string>
+    <string name="empty_tasks_subtitle">Создайте первую задачу, чтобы начать планировать день</string>
+    <string name="created_at_label">Создано: %1$s</string>
+    <string name="add_task_cta">Добавить</string>
+    <string name="subtasks_header">Подзадачи</string>
 </resources>

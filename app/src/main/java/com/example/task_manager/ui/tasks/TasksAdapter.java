@@ -5,10 +5,10 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -20,6 +20,9 @@ import com.example.task_manager.data.SubtaskEntity;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
 import com.example.task_manager.data.TaskWithSubtasks;
+import com.google.android.material.checkbox.MaterialCheckBox;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.color.MaterialColors;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -79,11 +82,29 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         holder.title.setText(task.getTitle());
         holder.checkBox.setOnCheckedChangeListener(null);
         holder.checkBox.setChecked(task.isDone());
-        if (task.getDueAt() != null) {
-            String formatted = dateFormat.format(new Date(task.getDueAt()));
-            holder.deadline.setText(holder.itemView.getContext().getString(R.string.deadline_label, formatted));
+        Long dueAt = task.getDueAt();
+        if (dueAt != null) {
+            String formatted = dateFormat.format(new Date(dueAt));
+            boolean overdue = dueAt < System.currentTimeMillis();
+            int containerColor = MaterialColors.getColor(holder.deadlineChip,
+                    overdue ? com.google.android.material.R.attr.colorErrorContainer : com.google.android.material.R.attr.colorSecondaryContainer);
+            int onContainerColor = MaterialColors.getColor(holder.deadlineChip,
+                    overdue ? com.google.android.material.R.attr.colorOnErrorContainer : com.google.android.material.R.attr.colorOnSecondaryContainer);
+            holder.deadlineChip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+            holder.deadlineChip.setTextColor(onContainerColor);
+            holder.deadlineChip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
+            holder.deadlineChip.setText(holder.itemView.getContext().getString(R.string.deadline_label, formatted));
+            holder.deadlineChip.setVisibility(View.VISIBLE);
         } else {
-            holder.deadline.setText(R.string.no_deadline_label);
+            holder.deadlineChip.setVisibility(View.GONE);
+        }
+
+        if (task.getCreatedAt() > 0) {
+            String formattedCreated = dateFormat.format(new Date(task.getCreatedAt()));
+            holder.createdAtText.setVisibility(View.VISIBLE);
+            holder.createdAtText.setText(holder.itemView.getContext().getString(R.string.created_at_label, formattedCreated));
+        } else {
+            holder.createdAtText.setVisibility(View.GONE);
         }
 
         holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -147,9 +168,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     }
 
     class TaskViewHolder extends RecyclerView.ViewHolder {
-        final CheckBox checkBox;
+        final MaterialCheckBox checkBox;
         final TextView title;
-        final TextView deadline;
+        final Chip deadlineChip;
+        final TextView createdAtText;
         final ImageButton expandButton;
         final View subtasksContainer;
         final RecyclerView subtasksList;
@@ -160,7 +182,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             super(itemView);
             checkBox = itemView.findViewById(R.id.task_checkbox);
             title = itemView.findViewById(R.id.task_title);
-            deadline = itemView.findViewById(R.id.task_deadline);
+            deadlineChip = itemView.findViewById(R.id.deadline_chip);
+            createdAtText = itemView.findViewById(R.id.created_at_text);
             expandButton = itemView.findViewById(R.id.expand_button);
             subtasksContainer = itemView.findViewById(R.id.subtasks_container);
             subtasksList = itemView.findViewById(R.id.subtasks_list);

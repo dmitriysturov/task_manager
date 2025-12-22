@@ -3,6 +3,7 @@ package com.example.task_manager.ui.tasks;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
@@ -11,7 +12,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -26,6 +26,8 @@ import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
 import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
 import com.example.task_manager.databinding.FragmentTasksBinding;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.color.MaterialColors;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -55,6 +57,7 @@ public class TasksFragment extends Fragment {
         taskDao = AppDatabase.getInstance(requireContext()).taskDao();
         subtaskDao = AppDatabase.getInstance(requireContext()).subtaskDao();
         ioExecutor = Executors.newSingleThreadExecutor();
+        binding.emptyState.setVisibility(View.GONE);
         setupRecyclerView();
         observeTasks();
         setupFab();
@@ -68,7 +71,12 @@ public class TasksFragment extends Fragment {
     }
 
     private void observeTasks() {
-        taskDao.observeAllWithSubtasks().observe(getViewLifecycleOwner(), adapter::submitList);
+        taskDao.observeAllWithSubtasks().observe(getViewLifecycleOwner(), tasks -> {
+            adapter.submitList(tasks);
+            boolean isEmpty = tasks == null || tasks.isEmpty();
+            binding.tasksList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+            binding.emptyState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        });
     }
 
     private void setupFab() {
@@ -79,7 +87,7 @@ public class TasksFragment extends Fragment {
     private void showTaskDialog(@Nullable TaskEntity existingTask) {
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_task, null, false);
         EditText input = dialogView.findViewById(R.id.input_title);
-        TextView deadlineText = dialogView.findViewById(R.id.deadline_text);
+        Chip deadlineText = dialogView.findViewById(R.id.deadline_text);
         Button selectDeadlineButton = dialogView.findViewById(R.id.select_deadline_button);
         Button clearDeadlineButton = dialogView.findViewById(R.id.clear_deadline_button);
 
@@ -118,7 +126,7 @@ public class TasksFragment extends Fragment {
                 .show();
     }
 
-    private void openDeadlinePicker(Long[] selectedDueAt, TextView deadlineText) {
+    private void openDeadlinePicker(Long[] selectedDueAt, Chip deadlineText) {
         final Calendar calendar = Calendar.getInstance();
         if (selectedDueAt[0] != null) {
             calendar.setTimeInMillis(selectedDueAt[0]);
@@ -151,13 +159,26 @@ public class TasksFragment extends Fragment {
         datePickerDialog.show();
     }
 
-    private void updateDeadlineText(TextView textView, @Nullable Long dueAt) {
+    private void updateDeadlineText(Chip chip, @Nullable Long dueAt) {
         if (dueAt == null) {
-            textView.setText(R.string.deadline_not_set);
-        } else {
-            String formatted = dateFormat.format(dueAt);
-            textView.setText(getString(R.string.deadline_prefix, formatted));
+            int containerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorSurfaceVariant);
+            int onContainerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorOnSurfaceVariant);
+            chip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+            chip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
+            chip.setTextColor(onContainerColor);
+            chip.setText(R.string.deadline_not_set);
+            return;
         }
+        String formatted = dateFormat.format(dueAt);
+        boolean overdue = dueAt < System.currentTimeMillis();
+        int containerColor = MaterialColors.getColor(chip,
+                overdue ? com.google.android.material.R.attr.colorErrorContainer : com.google.android.material.R.attr.colorSecondaryContainer);
+        int onContainerColor = MaterialColors.getColor(chip,
+                overdue ? com.google.android.material.R.attr.colorOnErrorContainer : com.google.android.material.R.attr.colorOnSecondaryContainer);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+        chip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
+        chip.setTextColor(onContainerColor);
+        chip.setText(getString(R.string.deadline_prefix, formatted));
     }
 
     private void onTaskLongPressed(TaskEntity task) {

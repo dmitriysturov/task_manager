@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
+        android:name=".TaskManagerApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -15,7 +16,8 @@
         <activity
             android:name=".ui.taskdetail.TaskDetailActivity"
             android:exported="false"
-            android:theme="@style/Theme.Task_manager.NoActionBar" />
+            android:theme="@style/Theme.Task_manager.NoActionBar"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

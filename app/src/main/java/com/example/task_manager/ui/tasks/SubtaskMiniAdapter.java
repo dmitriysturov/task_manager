@@ -3,7 +3,6 @@ package com.example.task_manager.ui.tasks;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -11,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.task_manager.R;
 import com.example.task_manager.data.SubtaskEntity;
+import com.google.android.material.checkbox.MaterialCheckBox;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +74,7 @@ public class SubtaskMiniAdapter extends RecyclerView.Adapter<SubtaskMiniAdapter.
     }
 
     static class SubtaskViewHolder extends RecyclerView.ViewHolder {
-        final CheckBox checkBox;
+        final MaterialCheckBox checkBox;
         final TextView title;
 
         SubtaskViewHolder(@NonNull View itemView) {

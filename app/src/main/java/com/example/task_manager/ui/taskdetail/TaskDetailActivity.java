@@ -5,6 +5,7 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
@@ -12,7 +13,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -27,6 +27,8 @@ import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
 import com.example.task_manager.databinding.ActivityTaskDetailBinding;
 import com.example.task_manager.ui.tasks.SubtaskMiniAdapter;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.color.MaterialColors;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -70,6 +72,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
+        binding.toolbar.setNavigationOnClickListener(v -> finish());
 
         taskDao = AppDatabase.getInstance(this).taskDao();
         subtaskDao = AppDatabase.getInstance(this).subtaskDao();
@@ -77,6 +80,7 @@ public class TaskDetailActivity extends AppCompatActivity {
 
         setupDeadlineButtons();
         setupSubtasks();
+        updateDeadlineChip(binding.deadlineChip, null);
         observeTask();
         observeSubtasks();
     }
@@ -85,7 +89,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         binding.selectDeadlineButton.setOnClickListener(v -> openDeadlinePicker());
         binding.resetDeadlineButton.setOnClickListener(v -> {
             selectedDueAt = null;
-            updateDeadlineText(binding.deadlineText, null);
+            updateDeadlineChip(binding.deadlineChip, null);
         });
     }
 
@@ -101,7 +105,8 @@ public class TaskDetailActivity extends AppCompatActivity {
                 .show());
         binding.subtasksList.setLayoutManager(new LinearLayoutManager(this));
         binding.subtasksList.setAdapter(subtaskAdapter);
-        binding.addSubtaskButton.setOnClickListener(v -> showAddSubtaskDialog());
+        binding.subtasksList.setNestedScrollingEnabled(false);
+        binding.addSubtaskFab.setOnClickListener(v -> showAddSubtaskDialog());
     }
 
     private void showAddSubtaskDialog() {
@@ -135,7 +140,7 @@ public class TaskDetailActivity extends AppCompatActivity {
             binding.titleEdit.setText(task.getTitle());
             binding.descriptionEdit.setText(task.getDescription());
             selectedDueAt = task.getDueAt();
-            updateDeadlineText(binding.deadlineText, selectedDueAt);
+            updateDeadlineChip(binding.deadlineChip, selectedDueAt);
         });
     }
 
@@ -167,7 +172,7 @@ public class TaskDetailActivity extends AppCompatActivity {
                 chosenDate.set(Calendar.HOUR_OF_DAY, hourOfDay);
                 chosenDate.set(Calendar.MINUTE, minuteOfHour);
                 selectedDueAt = chosenDate.getTimeInMillis();
-                updateDeadlineText(binding.deadlineText, selectedDueAt);
+                updateDeadlineChip(binding.deadlineChip, selectedDueAt);
             }, hour, minute, DateFormat.is24HourFormat(this));
 
             timePickerDialog.show();
@@ -176,13 +181,26 @@ public class TaskDetailActivity extends AppCompatActivity {
         datePickerDialog.show();
     }
 
-    private void updateDeadlineText(TextView textView, @Nullable Long dueAt) {
+    private void updateDeadlineChip(Chip chip, @Nullable Long dueAt) {
         if (dueAt == null) {
-            textView.setText(R.string.deadline_not_set);
-        } else {
-            String formatted = dateFormat.format(dueAt);
-            textView.setText(getString(R.string.deadline_prefix, formatted));
+            int containerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorSurfaceVariant);
+            int onContainerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorOnSurfaceVariant);
+            chip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+            chip.setTextColor(onContainerColor);
+            chip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
+            chip.setText(R.string.deadline_not_set);
+            return;
         }
+        String formatted = dateFormat.format(dueAt);
+        boolean overdue = dueAt < System.currentTimeMillis();
+        int containerColor = MaterialColors.getColor(chip,
+                overdue ? com.google.android.material.R.attr.colorErrorContainer : com.google.android.material.R.attr.colorSecondaryContainer);
+        int onContainerColor = MaterialColors.getColor(chip,
+                overdue ? com.google.android.material.R.attr.colorOnErrorContainer : com.google.android.material.R.attr.colorOnSecondaryContainer);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+        chip.setTextColor(onContainerColor);
+        chip.setChipIconTint(ColorStateList.valueOf(onContainerColor));
+        chip.setText(getString(R.string.deadline_prefix, formatted));
     }
 
     @Override
