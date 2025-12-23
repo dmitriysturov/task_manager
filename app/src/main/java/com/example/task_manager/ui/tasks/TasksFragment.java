@@ -20,6 +20,7 @@ import android.widget.EditText;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.widget.ArrayAdapter;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -42,18 +43,23 @@ import com.example.task_manager.data.SubtaskDao;
 import com.example.task_manager.data.SubtaskEntity;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
-import com.example.task_manager.data.TaskWithSubtasks;
+import com.example.task_manager.data.TaskWithTagsAndSubtasks;
+import com.example.task_manager.data.TagDao;
+import com.example.task_manager.data.TagEntity;
 import com.example.task_manager.ui.groups.GroupsActivity;
 import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
 import com.example.task_manager.databinding.FragmentTasksBinding;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
@@ -69,6 +75,7 @@ public class TasksFragment extends Fragment {
     private TaskDao taskDao;
     private SubtaskDao subtaskDao;
     private GroupDao groupDao;
+    private TagDao tagDao;
     private ExecutorService ioExecutor;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
     private final Paint swipePaint = new Paint();
@@ -82,13 +89,15 @@ public class TasksFragment extends Fragment {
     private android.graphics.drawable.Drawable scheduleIcon;
 
     @Nullable
-    private LiveData<List<TaskWithSubtasks>> tasksLiveData;
+    private LiveData<List<TaskWithTagsAndSubtasks>> tasksLiveData;
     @Nullable
     private Long selectedGroupId;
     private ArrayAdapter<GroupItem> groupAdapter;
     private final List<GroupItem> groupItems = new ArrayList<>();
     private SharedPreferences preferences;
     private String currentQuery = "";
+    private final Set<Long> selectedTagFilter = new HashSet<>();
+    private List<TagEntity> availableTags = new ArrayList<>();
 
     @Nullable
     @Override
@@ -104,6 +113,7 @@ public class TasksFragment extends Fragment {
         taskDao = AppDatabase.getInstance(requireContext()).taskDao();
         subtaskDao = AppDatabase.getInstance(requireContext()).subtaskDao();
         groupDao = AppDatabase.getInstance(requireContext()).groupDao();
+        tagDao = AppDatabase.getInstance(requireContext()).tagDao();
         ioExecutor = Executors.newSingleThreadExecutor();
         preferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         if (savedInstanceState != null) {
@@ -111,6 +121,7 @@ public class TasksFragment extends Fragment {
         }
         restoreSelectedGroup();
         binding.emptyState.setVisibility(View.GONE);
+        tagDao.observeAllOrdered().observe(getViewLifecycleOwner(), tags -> availableTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags));
         setupGroupSelector();
         setupRecyclerView();
         observeTasks();
@@ -141,14 +152,17 @@ public class TasksFragment extends Fragment {
         });
     }
 
-    private LiveData<List<TaskWithSubtasks>> resolveTasksSource() {
+    private LiveData<List<TaskWithTagsAndSubtasks>> resolveTasksSource() {
+        boolean applyTags = !selectedTagFilter.isEmpty();
+        List<Long> tagIds = new ArrayList<>(selectedTagFilter);
+        int applyFlag = applyTags ? 1 : 0;
         if (TextUtils.isEmpty(currentQuery)) {
-            return taskDao.observeAllWithSubtasksByGroup(selectedGroupId);
+            return taskDao.observeAllWithTagsAndSubtasksByGroup(selectedGroupId, applyFlag, tagIds);
         }
         if (selectedGroupId == null) {
-            return taskDao.searchUndoneWithSubtasksInInbox(currentQuery);
+            return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
         }
-        return taskDao.searchUndoneWithSubtasksInGroup(selectedGroupId, currentQuery);
+        return taskDao.searchUndoneWithTagsAndSubtasksInGroup(selectedGroupId, currentQuery, applyFlag, tagIds);
     }
 
     private void updateEmptyStateText(boolean isEmpty) {
@@ -178,6 +192,70 @@ public class TasksFragment extends Fragment {
     private void setupFab() {
         View fab = binding.fab;
         fab.setOnClickListener(v -> showTaskDialog(null));
+    }
+
+    private void showTagFilterDialog() {
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_tags, null, false);
+        EditText input = dialogView.findViewById(R.id.input_tag_name);
+        View addButton = dialogView.findViewById(R.id.add_tag_button);
+        ViewGroup container = dialogView.findViewById(R.id.tag_list_container);
+
+        Set<Long> selectedIds = new HashSet<>(selectedTagFilter);
+
+        Runnable rebuild = () -> {
+            container.removeAllViews();
+            if (availableTags.isEmpty()) {
+                TextView empty = new TextView(requireContext());
+                empty.setText(R.string.no_tags);
+                container.addView(empty);
+                return;
+            }
+            for (TagEntity tag : availableTags) {
+                MaterialCheckBox checkBox = new MaterialCheckBox(requireContext());
+                checkBox.setText(tag.getName());
+                checkBox.setChecked(selectedIds.contains(tag.getId()));
+                checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    if (isChecked) {
+                        selectedIds.add(tag.getId());
+                    } else {
+                        selectedIds.remove(tag.getId());
+                    }
+                });
+                container.addView(checkBox);
+            }
+        };
+        rebuild.run();
+
+        addButton.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            if (name.isEmpty()) {
+                return;
+            }
+            ioExecutor.execute(() -> {
+                long id = tagDao.insert(new TagEntity(name));
+                requireActivity().runOnUiThread(() -> {
+                    input.setText("");
+                    if (id != -1) {
+                        TagEntity tag = new TagEntity(name);
+                        tag.setId(id);
+                        availableTags.add(tag);
+                        selectedIds.add(id);
+                    }
+                    rebuild.run();
+                });
+            });
+        });
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.tags_filter_title)
+                .setView(dialogView)
+                .setPositiveButton(R.string.dialog_ok, (dialog, which) -> {
+                    selectedTagFilter.clear();
+                    selectedTagFilter.addAll(selectedIds);
+                    observeTasks();
+                })
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show();
     }
 
     private void showTaskDialog(@Nullable TaskEntity existingTask) {
@@ -318,7 +396,7 @@ public class TasksFragment extends Fragment {
                 if (position == RecyclerView.NO_POSITION) {
                     return;
                 }
-                TaskWithSubtasks taskWithSubtasks = adapter.getItem(position);
+                TaskWithTagsAndSubtasks taskWithSubtasks = adapter.getItem(position);
                 if (direction == ItemTouchHelper.LEFT) {
                     handleDeleteSwipe(taskWithSubtasks);
                 } else {
@@ -337,7 +415,7 @@ public class TasksFragment extends Fragment {
         new ItemTouchHelper(simpleCallback).attachToRecyclerView(recyclerView);
     }
 
-    private void handleDeleteSwipe(TaskWithSubtasks taskWithSubtasks) {
+    private void handleDeleteSwipe(TaskWithTagsAndSubtasks taskWithSubtasks) {
         TaskEntity task = taskWithSubtasks.task;
         TaskEntity backupTask = copyTask(task, false);
         List<SubtaskEntity> subtasksBackup = new ArrayList<>();
@@ -623,6 +701,9 @@ public class TasksFragment extends Fragment {
             public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
                 if (menuItem.getItemId() == R.id.action_groups) {
                     startActivity(GroupsActivity.createIntent(requireContext()));
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_tags) {
+                    showTagFilterDialog();
                     return true;
                 }
                 return false;

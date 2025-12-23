@@ -74,4 +74,13 @@
     <string name="search_hint">Поиск задач</string>
     <string name="empty_search_title">Ничего не найдено</string>
     <string name="empty_search_subtitle">Попробуйте изменить запрос</string>
+    <string name="tags_header">Теги</string>
+    <string name="edit_tags">Изменить</string>
+    <string name="add_tag">Добавить</string>
+    <string name="new_tag_hint">Новый тег</string>
+    <string name="menu_tags">Теги…</string>
+    <string name="tags_filter_title">Фильтр по тегам</string>
+    <string name="no_tags">Нет тегов</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Отмена</string>
 </resources>

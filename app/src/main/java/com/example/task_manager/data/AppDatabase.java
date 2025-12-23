@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {TaskEntity.class, SubtaskEntity.class, GroupEntity.class}, version = 4, exportSchema = false)
+@Database(entities = {TaskEntity.class, SubtaskEntity.class, GroupEntity.class, TagEntity.class, TaskTagCrossRef.class}, version = 5, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
 
     private static volatile AppDatabase INSTANCE;
@@ -17,6 +17,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract TaskDao taskDao();
     public abstract SubtaskDao subtaskDao();
     public abstract GroupDao groupDao();
+    public abstract TagDao tagDao();
+    public abstract TaskTagDao taskTagDao();
 
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -44,6 +46,17 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `tags` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)");
+            database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_tags_name ON tags(name)");
+            database.execSQL("CREATE TABLE IF NOT EXISTS `task_tags` (`taskId` INTEGER NOT NULL, `tagId` INTEGER NOT NULL, PRIMARY KEY(`taskId`, `tagId`), FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON DELETE CASCADE, FOREIGN KEY(`tagId`) REFERENCES `tags`(`id`) ON DELETE CASCADE)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_task_tags_taskId ON task_tags(taskId)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_task_tags_tagId ON task_tags(tagId)");
+        }
+    };
+
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -53,7 +66,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                     AppDatabase.class,
                                     "tasks.db"
                             )
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                             .addCallback(new Callback() {
                                 @Override
                                 public void onOpen(@NonNull SupportSQLiteDatabase db) {

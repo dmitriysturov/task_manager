@@ -13,7 +13,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,14 +27,22 @@ import com.example.task_manager.data.SubtaskDao;
 import com.example.task_manager.data.SubtaskEntity;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.data.TagDao;
+import com.example.task_manager.data.TagEntity;
+import com.example.task_manager.data.TaskTagDao;
 import com.example.task_manager.databinding.ActivityTaskDetailBinding;
 import com.example.task_manager.ui.tasks.SubtaskMiniAdapter;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.color.MaterialColors;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -49,6 +59,8 @@ public class TaskDetailActivity extends AppCompatActivity {
     private ActivityTaskDetailBinding binding;
     private TaskDao taskDao;
     private SubtaskDao subtaskDao;
+    private TagDao tagDao;
+    private TaskTagDao taskTagDao;
     private ExecutorService ioExecutor;
     private long taskId;
     @Nullable
@@ -56,6 +68,8 @@ public class TaskDetailActivity extends AppCompatActivity {
     private TaskEntity currentTask;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
     private SubtaskMiniAdapter subtaskAdapter;
+    private List<TagEntity> allTags = new ArrayList<>();
+    private List<TagEntity> currentTags = new ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -76,10 +90,13 @@ public class TaskDetailActivity extends AppCompatActivity {
 
         taskDao = AppDatabase.getInstance(this).taskDao();
         subtaskDao = AppDatabase.getInstance(this).subtaskDao();
+        tagDao = AppDatabase.getInstance(this).tagDao();
+        taskTagDao = AppDatabase.getInstance(this).taskTagDao();
         ioExecutor = Executors.newSingleThreadExecutor();
 
         setupDeadlineButtons();
         setupSubtasks();
+        setupTags();
         updateDeadlineChip(binding.deadlineChip, null);
         observeTask();
         observeSubtasks();
@@ -109,6 +126,18 @@ public class TaskDetailActivity extends AppCompatActivity {
         binding.addSubtaskFab.setOnClickListener(v -> showAddSubtaskDialog());
     }
 
+    private void setupTags() {
+        binding.editTagsButton.setOnClickListener(v -> showTagsDialog());
+        tagDao.observeAllOrdered().observe(this, tags -> {
+            allTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
+            updateTagChips();
+        });
+        taskTagDao.observeTagsForTask(taskId).observe(this, tags -> {
+            currentTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags);
+            updateTagChips();
+        });
+    }
+
     private void showAddSubtaskDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_subtask, null, false);
         EditText input = dialogView.findViewById(R.id.input_subtask_title);
@@ -127,6 +156,101 @@ public class TaskDetailActivity extends AppCompatActivity {
                     ioExecutor.execute(() -> subtaskDao.insert(subtask));
                 })
                 .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void updateTagChips() {
+        binding.tagsChipGroup.removeAllViews();
+        if (currentTags == null || currentTags.isEmpty()) {
+            binding.tagsEmpty.setVisibility(View.VISIBLE);
+            binding.tagsChipGroup.setVisibility(View.GONE);
+            return;
+        }
+        binding.tagsEmpty.setVisibility(View.GONE);
+        binding.tagsChipGroup.setVisibility(View.VISIBLE);
+        List<TagEntity> sorted = new ArrayList<>(currentTags);
+        sorted.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        for (TagEntity tag : sorted) {
+            Chip chip = createTagChip(tag.getName());
+            binding.tagsChipGroup.addView(chip);
+        }
+    }
+
+    private Chip createTagChip(String text) {
+        Chip chip = new Chip(this, null, com.google.android.material.R.attr.chipStyle);
+        chip.setText(text);
+        chip.setClickable(false);
+        chip.setCheckable(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setChipMinHeight(0f);
+        int containerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorSurfaceVariant);
+        int onContainerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorOnSurfaceVariant);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(containerColor));
+        chip.setTextColor(onContainerColor);
+        chip.setTextAppearanceResource(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge);
+        return chip;
+    }
+
+    private void showTagsDialog() {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_tags, null, false);
+        EditText input = dialogView.findViewById(R.id.input_tag_name);
+        View addButton = dialogView.findViewById(R.id.add_tag_button);
+        ViewGroup container = dialogView.findViewById(R.id.tag_list_container);
+
+        Set<Long> selectedIds = new HashSet<>();
+        for (TagEntity tag : currentTags) {
+            selectedIds.add(tag.getId());
+        }
+
+        Runnable rebuild = () -> {
+            container.removeAllViews();
+            if (allTags.isEmpty()) {
+                TextView empty = new TextView(this);
+                empty.setText(R.string.no_tags);
+                container.addView(empty);
+                return;
+            }
+            for (TagEntity tag : allTags) {
+                MaterialCheckBox checkBox = new MaterialCheckBox(this);
+                checkBox.setText(tag.getName());
+                checkBox.setChecked(selectedIds.contains(tag.getId()));
+                checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    if (isChecked) {
+                        selectedIds.add(tag.getId());
+                    } else {
+                        selectedIds.remove(tag.getId());
+                    }
+                });
+                container.addView(checkBox);
+            }
+        };
+        rebuild.run();
+
+        addButton.setOnClickListener(v -> {
+            String name = input.getText().toString().trim();
+            if (name.isEmpty()) {
+                return;
+            }
+            ioExecutor.execute(() -> {
+                long id = tagDao.insert(new TagEntity(name));
+                runOnUiThread(() -> {
+                    input.setText("");
+                    if (id != -1) {
+                        TagEntity tag = new TagEntity(name);
+                        tag.setId(id);
+                        allTags.add(tag);
+                        selectedIds.add(id);
+                    }
+                    rebuild.run();
+                });
+            });
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.tags_header)
+                .setView(dialogView)
+                .setPositiveButton(R.string.dialog_ok, (dialog, which) -> ioExecutor.execute(() -> taskTagDao.replaceTagsForTask(taskId, new ArrayList<>(selectedIds))))
+                .setNegativeButton(R.string.dialog_cancel, null)
                 .show();
     }
 

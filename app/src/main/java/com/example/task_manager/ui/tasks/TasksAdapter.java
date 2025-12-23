@@ -19,13 +19,17 @@ import com.example.task_manager.data.SubtaskDao;
 import com.example.task_manager.data.SubtaskEntity;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
-import com.example.task_manager.data.TaskWithSubtasks;
+import com.example.task_manager.data.TaskWithTagsAndSubtasks;
+import com.example.task_manager.data.TagEntity;
 import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.color.MaterialColors;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -43,7 +47,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         void onTaskClick(TaskEntity task);
     }
 
-    private final List<TaskWithSubtasks> items = new ArrayList<>();
+    private final List<TaskWithTagsAndSubtasks> items = new ArrayList<>();
     private final TaskDao taskDao;
     private final SubtaskDao subtaskDao;
     private final ExecutorService ioExecutor;
@@ -61,15 +65,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         setHasStableIds(true);
     }
 
-    public void submitList(List<TaskWithSubtasks> newItems) {
-        List<TaskWithSubtasks> safeNewItems = newItems == null ? new ArrayList<>() : new ArrayList<>(newItems);
+    public void submitList(List<TaskWithTagsAndSubtasks> newItems) {
+        List<TaskWithTagsAndSubtasks> safeNewItems = newItems == null ? new ArrayList<>() : new ArrayList<>(newItems);
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new TaskDiffCallback(items, safeNewItems));
         items.clear();
         items.addAll(safeNewItems);
         diffResult.dispatchUpdatesTo(this);
     }
 
-    public TaskWithSubtasks getItem(int position) {
+    public TaskWithTagsAndSubtasks getItem(int position) {
         return items.get(position);
     }
 
@@ -82,7 +86,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
     @Override
     public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
-        TaskWithSubtasks taskWithSubtasks = items.get(position);
+        TaskWithTagsAndSubtasks taskWithSubtasks = items.get(position);
         TaskEntity task = taskWithSubtasks.task;
         holder.title.setText(task.getTitle());
         holder.checkBox.setOnCheckedChangeListener(null);
@@ -141,6 +145,44 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
         holder.bindSubtasks(taskWithSubtasks.subtasks);
         holder.addSubtaskButton.setOnClickListener(v -> showAddSubtaskDialog(v.getContext(), task));
+        bindTags(holder, taskWithSubtasks.tags);
+    }
+
+    private void bindTags(TaskViewHolder holder, List<TagEntity> tags) {
+        holder.tagsGroup.removeAllViews();
+        if (tags == null || tags.isEmpty()) {
+            holder.tagsGroup.setVisibility(View.GONE);
+            return;
+        }
+        holder.tagsGroup.setVisibility(View.VISIBLE);
+        Context context = holder.itemView.getContext();
+        List<TagEntity> sortedTags = new ArrayList<>(tags);
+        Collections.sort(sortedTags, Comparator.comparing(TagEntity::getName, String.CASE_INSENSITIVE_ORDER));
+        int count = Math.min(sortedTags.size(), 2);
+        for (int i = 0; i < count; i++) {
+            if (i == 1 && sortedTags.size() > 2) {
+                int remaining = sortedTags.size() - 1;
+                holder.tagsGroup.addView(createTagChip(context, "+" + remaining, true));
+                return;
+            }
+            TagEntity tag = sortedTags.get(i);
+            holder.tagsGroup.addView(createTagChip(context, tag.getName(), false));
+        }
+    }
+
+    private Chip createTagChip(Context context, String text, boolean isSummary) {
+        Chip chip = new Chip(context, null, com.google.android.material.R.attr.chipStyle);
+        chip.setText(text);
+        chip.setClickable(false);
+        chip.setCheckable(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setChipMinHeight(0f);
+        int containerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorSurfaceVariant);
+        int onContainerColor = MaterialColors.getColor(chip, com.google.android.material.R.attr.colorOnSurfaceVariant);
+        chip.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(containerColor));
+        chip.setTextColor(onContainerColor);
+        chip.setTextAppearanceResource(com.google.android.material.R.style.TextAppearance_Material3_LabelSmall);
+        return chip;
     }
 
     private void showAddSubtaskDialog(Context context, TaskEntity task) {
@@ -183,6 +225,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         final RecyclerView subtasksList;
         final View addSubtaskButton;
         final SubtaskMiniAdapter subtaskMiniAdapter;
+        final ChipGroup tagsGroup;
 
         TaskViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -194,6 +237,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             subtasksContainer = itemView.findViewById(R.id.subtasks_container);
             subtasksList = itemView.findViewById(R.id.subtasks_list);
             addSubtaskButton = itemView.findViewById(R.id.add_subtask_button);
+            tagsGroup = itemView.findViewById(R.id.task_tags_group);
             subtaskMiniAdapter = new SubtaskMiniAdapter(subtask -> {
                 subtask.done = !subtask.done;
                 subtask.updatedAt = System.currentTimeMillis();
@@ -215,10 +259,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     }
 
     private static class TaskDiffCallback extends DiffUtil.Callback {
-        private final List<TaskWithSubtasks> oldList;
-        private final List<TaskWithSubtasks> newList;
+        private final List<TaskWithTagsAndSubtasks> oldList;
+        private final List<TaskWithTagsAndSubtasks> newList;
 
-        TaskDiffCallback(List<TaskWithSubtasks> oldList, List<TaskWithSubtasks> newList) {
+        TaskDiffCallback(List<TaskWithTagsAndSubtasks> oldList, List<TaskWithTagsAndSubtasks> newList) {
             this.oldList = oldList;
             this.newList = newList;
         }
@@ -240,11 +284,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
 
         @Override
         public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-            TaskWithSubtasks oldItem = oldList.get(oldItemPosition);
-            TaskWithSubtasks newItem = newList.get(newItemPosition);
+            TaskWithTagsAndSubtasks oldItem = oldList.get(oldItemPosition);
+            TaskWithTagsAndSubtasks newItem = newList.get(newItemPosition);
             TaskEntity oldTask = oldItem.task;
             TaskEntity newTask = newItem.task;
             boolean subtasksEqual = areSubtasksSame(oldItem.subtasks, newItem.subtasks);
+            boolean tagsEqual = areTagsSame(oldItem.tags, newItem.tags);
             return oldTask.isDone() == newTask.isDone()
                     && oldTask.getTitle().equals(newTask.getTitle())
                     && ((oldTask.getDueAt() == null && newTask.getDueAt() == null) ||
@@ -253,7 +298,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
                     && ((oldTask.getGroupId() == null && newTask.getGroupId() == null) ||
                     (oldTask.getGroupId() != null && oldTask.getGroupId().equals(newTask.getGroupId())))
                     && oldTask.getCreatedAt() == newTask.getCreatedAt()
-                    && subtasksEqual;
+                    && subtasksEqual
+                    && tagsEqual;
         }
 
         private boolean areSubtasksSame(List<SubtaskEntity> oldSubtasks, List<SubtaskEntity> newSubtasks) {
@@ -270,6 +316,27 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
                         || oldSubtask.done != newSubtask.done
                         || oldSubtask.updatedAt != newSubtask.updatedAt
                         || !oldSubtask.title.equals(newSubtask.title)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private boolean areTagsSame(List<TagEntity> oldTags, List<TagEntity> newTags) {
+            if (oldTags == null && newTags == null) {
+                return true;
+            }
+            if (oldTags == null || newTags == null || oldTags.size() != newTags.size()) {
+                return false;
+            }
+            List<TagEntity> oldSorted = new ArrayList<>(oldTags);
+            List<TagEntity> newSorted = new ArrayList<>(newTags);
+            Collections.sort(oldSorted, Comparator.comparing(TagEntity::getName, String.CASE_INSENSITIVE_ORDER));
+            Collections.sort(newSorted, Comparator.comparing(TagEntity::getName, String.CASE_INSENSITIVE_ORDER));
+            for (int i = 0; i < oldSorted.size(); i++) {
+                TagEntity oldTag = oldSorted.get(i);
+                TagEntity newTag = newSorted.get(i);
+                if (oldTag.getId() != newTag.getId() || !oldTag.getName().equals(newTag.getName())) {
                     return false;
                 }
             }

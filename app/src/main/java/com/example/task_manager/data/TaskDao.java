@@ -14,14 +14,6 @@ import java.util.List;
 @Dao
 public interface TaskDao {
 
-    @Transaction
-    @Query("SELECT * FROM tasks ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
-    LiveData<List<TaskWithSubtasks>> observeAllWithSubtasks();
-
-    @Transaction
-    @Query("SELECT * FROM tasks WHERE ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
-    LiveData<List<TaskWithSubtasks>> observeAllWithSubtasksByGroup(@Nullable Long groupId);
-
     @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
     LiveData<TaskEntity> observeById(long id);
 
@@ -43,18 +35,6 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 0 AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> searchUndoneAll(String q);
 
-    @Transaction
-    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
-    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksInInbox(String q);
-
-    @Transaction
-    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
-    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksInGroup(long groupId, String q);
-
-    @Transaction
-    @Query("SELECT * FROM tasks WHERE done = 0 AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
-    LiveData<List<TaskWithSubtasks>> searchUndoneWithSubtasksAll(String q);
-
     @Query("SELECT * FROM tasks WHERE done = 0 AND ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneByGroup(@Nullable Long groupId);
 
@@ -75,4 +55,16 @@ public interface TaskDao {
 
     @Query("UPDATE tasks SET groupId = NULL WHERE groupId = :groupId")
     void clearGroupId(long groupId);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE ((:groupId IS NULL AND groupId IS NULL) OR groupId = :groupId) AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> observeAllWithTagsAndSubtasksByGroup(@Nullable Long groupId, int applyTags, List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInInbox(String q, int applyTags, List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInGroup(long groupId, String q, int applyTags, List<Long> tagIds);
 }
