@@ -18,6 +18,9 @@ public interface TagDao {
     @Query("SELECT * FROM tags ORDER BY name ASC")
     LiveData<List<TagEntity>> observeAllOrdered();
 
+    @Query("SELECT * FROM tags WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) LIMIT 1")
+    TagEntity findByNameSync(String name);
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     long insert(TagEntity tag);
 

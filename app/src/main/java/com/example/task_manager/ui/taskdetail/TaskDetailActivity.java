@@ -273,14 +273,27 @@ public class TaskDetailActivity extends AppCompatActivity {
                 return;
             }
             ioExecutor.execute(() -> {
-                long id = tagDao.insert(new TagEntity(name));
+                TagEntity existing = tagDao.findByNameSync(name);
+                TagEntity resolved = existing;
+                if (resolved == null) {
+                    tagDao.insert(new TagEntity(name));
+                    resolved = tagDao.findByNameSync(name);
+                }
+                TagEntity finalResolved = resolved;
                 runOnUiThread(() -> {
                     input.setText("");
-                    if (id != -1) {
-                        TagEntity tag = new TagEntity(name);
-                        tag.setId(id);
-                        allTags.add(tag);
-                        selectedIds.add(id);
+                    if (finalResolved != null) {
+                        boolean existsInList = false;
+                        for (TagEntity tag : allTags) {
+                            if (tag.getId() == finalResolved.getId()) {
+                                existsInList = true;
+                                break;
+                            }
+                        }
+                        if (!existsInList) {
+                            allTags.add(finalResolved);
+                        }
+                        selectedIds.add(finalResolved.getId());
                     }
                     rebuild.run();
                 });

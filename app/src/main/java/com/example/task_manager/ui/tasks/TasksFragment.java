@@ -101,6 +101,7 @@ public class TasksFragment extends Fragment {
     private String currentQuery = "";
     private final Set<Long> selectedTagFilter = new HashSet<>();
     private List<TagEntity> availableTags = new ArrayList<>();
+    private boolean hasAppliedInitialGroup;
 
     @Nullable
     @Override
@@ -123,6 +124,7 @@ public class TasksFragment extends Fragment {
             currentQuery = savedInstanceState.getString(STATE_QUERY, "");
         }
         restoreSelectedGroup();
+        hasAppliedInitialGroup = false;
         binding.emptyState.setVisibility(View.GONE);
         tagDao.observeAllOrdered().observe(getViewLifecycleOwner(), tags -> availableTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags));
         setupGroupSelector();
@@ -236,14 +238,27 @@ public class TasksFragment extends Fragment {
                 return;
             }
             ioExecutor.execute(() -> {
-                long id = tagDao.insert(new TagEntity(name));
+                TagEntity existing = tagDao.findByNameSync(name);
+                TagEntity resolved = existing;
+                if (resolved == null) {
+                    tagDao.insert(new TagEntity(name));
+                    resolved = tagDao.findByNameSync(name);
+                }
+                TagEntity finalResolved = resolved;
                 requireActivity().runOnUiThread(() -> {
                     input.setText("");
-                    if (id != -1) {
-                        TagEntity tag = new TagEntity(name);
-                        tag.setId(id);
-                        availableTags.add(tag);
-                        selectedIds.add(id);
+                    if (finalResolved != null) {
+                        boolean existsInList = false;
+                        for (TagEntity tag : availableTags) {
+                            if (tag.getId() == finalResolved.getId()) {
+                                existsInList = true;
+                                break;
+                            }
+                        }
+                        if (!existsInList) {
+                            availableTags.add(finalResolved);
+                        }
+                        selectedIds.add(finalResolved.getId());
                     }
                     rebuild.run();
                 });
@@ -400,6 +415,7 @@ public class TasksFragment extends Fragment {
                 if (position == RecyclerView.NO_POSITION) {
                     return;
                 }
+                viewHolder.itemView.post(() -> adapter.notifyItemChanged(position));
                 TaskWithTagsAndSubtasks taskWithSubtasks = adapter.getItem(position);
                 if (direction == ItemTouchHelper.LEFT) {
                     handleDeleteSwipe(taskWithSubtasks);
@@ -597,9 +613,13 @@ public class TasksFragment extends Fragment {
                 }
             }
             updateGroupAdapter();
-            applySelectionToDropdown(false);
+            if (!hasAppliedInitialGroup) {
+                applySelectionToDropdown(true);
+                hasAppliedInitialGroup = true;
+            } else {
+                ensureSelectedGroupExists();
+            }
         });
-        applySelectionToDropdown(false);
     }
 
     private void updateGroupAdapter() {
@@ -619,7 +639,26 @@ public class TasksFragment extends Fragment {
         if (changed || fromUser) {
             observeTasks();
         }
-        applySelectionToDropdown(!fromUser);
+        if (!fromUser) {
+            applySelectionToDropdown(true);
+        }
+    }
+
+    private void ensureSelectedGroupExists() {
+        if (groupItems.isEmpty()) {
+            return;
+        }
+        boolean found = false;
+        for (GroupItem item : groupItems) {
+            if ((item.id == null && selectedGroupId == null)
+                    || (item.id != null && item.id.equals(selectedGroupId))) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            updateSelectedGroup(null, false);
+        }
     }
 
     private void applySelectionToDropdown(boolean triggerObserve) {
