@@ -35,6 +35,27 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@id/calendar_task_checkbox" />
 
+        <View
+            android:id="@+id/calendar_task_group_marker"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:layout_marginTop="6dp"
+            android:background="@android:color/transparent"
+            app:layout_constraintStart_toStartOf="@id/calendar_task_checkbox"
+            app:layout_constraintTop_toBottomOf="@id/calendar_task_checkbox" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/calendar_task_group_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/calendar_task_group_marker"
+            app:layout_constraintTop_toBottomOf="@id/calendar_task_checkbox" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>

@@ -1,15 +1,16 @@
 package com.example.task_manager.ui.calendar;
 
 import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.data.TaskWithGroup;
 
 import java.time.LocalDate;
 import java.util.List;
 
 public class DaySection {
     private final LocalDate date;
-    private final List<TaskEntity> tasks;
+    private final List<TaskWithGroup> tasks;
 
-    public DaySection(LocalDate date, List<TaskEntity> tasks) {
+    public DaySection(LocalDate date, List<TaskWithGroup> tasks) {
         this.date = date;
         this.tasks = tasks;
     }
@@ -18,7 +19,7 @@ public class DaySection {
         return date;
     }
 
-    public List<TaskEntity> getTasks() {
+    public List<TaskWithGroup> getTasks() {
         return tasks;
     }
 }

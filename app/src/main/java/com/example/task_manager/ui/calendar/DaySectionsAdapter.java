@@ -1,5 +1,6 @@
 package com.example.task_manager.ui.calendar;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,9 +13,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.task_manager.R;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.data.TaskWithGroup;
 import com.google.android.material.checkbox.MaterialCheckBox;
+import com.google.android.material.color.MaterialColors;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -28,6 +32,11 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
         void onTaskClick(TaskEntity task);
     }
 
+    public enum SelectionMode {
+        WEEK,
+        DAY
+    }
+
     private final List<DaySection> sections = new ArrayList<>();
     private final TaskDao taskDao;
     private final ExecutorService ioExecutor;
@@ -35,6 +44,10 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
     private final DateTimeFormatter dayTitleFormatter = DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault());
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault());
     private final ZoneId zoneId = ZoneId.systemDefault();
+
+    private SelectionMode selectionMode = SelectionMode.WEEK;
+    private LocalDate today = LocalDate.now();
+    private LocalDate selectedDay;
 
     public DaySectionsAdapter(TaskDao taskDao, ExecutorService ioExecutor, OnTaskClickListener clickListener) {
         this.taskDao = taskDao;
@@ -61,6 +74,7 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
     public void onBindViewHolder(@NonNull DaySectionViewHolder holder, int position) {
         DaySection section = sections.get(position);
         holder.dayTitle.setText(capitalize(dayTitleFormatter.format(section.getDate())));
+        holder.bindSelection(section.getDate(), selectionMode, today, selectedDay);
         holder.bindTasks(section.getTasks());
     }
 
@@ -74,6 +88,13 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
             return "";
         }
         return text.substring(0, 1).toUpperCase(Locale.getDefault()) + text.substring(1);
+    }
+
+    public void updateSelection(SelectionMode mode, LocalDate today, LocalDate selectedDay) {
+        this.selectionMode = mode;
+        this.today = today;
+        this.selectedDay = selectedDay;
+        notifyDataSetChanged();
     }
 
     class DaySectionViewHolder extends RecyclerView.ViewHolder {
@@ -92,18 +113,42 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
             tasksList.setAdapter(tasksAdapter);
         }
 
-        void bindTasks(List<TaskEntity> tasks) {
+        void bindTasks(List<TaskWithGroup> tasks) {
             boolean isEmpty = tasks == null || tasks.isEmpty();
             emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
             tasksAdapter.submitList(tasks);
+        }
+
+        void bindSelection(LocalDate date, SelectionMode mode, LocalDate today, LocalDate selectedDay) {
+            dayTitle.setSelected(false);
+            dayTitle.setBackgroundColor(Color.TRANSPARENT);
+            int defaultTextColor = MaterialColors.getColor(dayTitle, com.google.android.material.R.attr.colorOnSurface);
+            dayTitle.setTextColor(defaultTextColor);
+
+            boolean highlight = false;
+            if (mode == SelectionMode.WEEK) {
+                highlight = date.equals(today);
+            } else if (selectedDay != null) {
+                highlight = date.equals(selectedDay);
+            } else {
+                highlight = date.equals(today);
+            }
+
+            if (highlight) {
+                int background = MaterialColors.getColor(dayTitle, com.google.android.material.R.attr.colorPrimaryContainer);
+                int textColor = MaterialColors.getColor(dayTitle, com.google.android.material.R.attr.colorOnPrimaryContainer);
+                dayTitle.setSelected(true);
+                dayTitle.setBackgroundColor(background);
+                dayTitle.setTextColor(textColor);
+            }
         }
     }
 
     class DayTasksAdapter extends RecyclerView.Adapter<DayTasksAdapter.TaskViewHolder> {
 
-        private final List<TaskEntity> tasks = new ArrayList<>();
+        private final List<TaskWithGroup> tasks = new ArrayList<>();
 
-        void submitList(List<TaskEntity> newTasks) {
+        void submitList(List<TaskWithGroup> newTasks) {
             tasks.clear();
             if (newTasks != null) {
                 tasks.addAll(newTasks);
@@ -120,7 +165,8 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
 
         @Override
         public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
-            TaskEntity task = tasks.get(position);
+            TaskWithGroup taskWithGroup = tasks.get(position);
+            TaskEntity task = taskWithGroup.task;
             holder.checkBox.setOnCheckedChangeListener(null);
             holder.checkBox.setText(task.getTitle());
             holder.checkBox.setChecked(task.isDone());
@@ -131,6 +177,12 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
             } else {
                 holder.timeText.setText(holder.itemView.getContext().getString(R.string.no_deadline_label));
             }
+
+            String groupName = taskWithGroup.groupName;
+            holder.groupText.setText(groupName == null ? "" : groupName);
+            int defaultMarkerColor = MaterialColors.getColor(holder.groupMarker, com.google.android.material.R.attr.colorSecondary);
+            Integer groupColor = taskWithGroup.groupColor;
+            holder.groupMarker.setBackgroundColor(groupColor != null && groupColor != 0 ? groupColor : defaultMarkerColor);
 
             holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 task.setDone(isChecked);
@@ -152,11 +204,15 @@ public class DaySectionsAdapter extends RecyclerView.Adapter<DaySectionsAdapter.
         class TaskViewHolder extends RecyclerView.ViewHolder {
             final MaterialCheckBox checkBox;
             final TextView timeText;
+            final View groupMarker;
+            final TextView groupText;
 
             TaskViewHolder(@NonNull View itemView) {
                 super(itemView);
                 checkBox = itemView.findViewById(R.id.calendar_task_checkbox);
                 timeText = itemView.findViewById(R.id.calendar_task_time);
+                groupMarker = itemView.findViewById(R.id.calendar_task_group_marker);
+                groupText = itemView.findViewById(R.id.calendar_task_group_text);
             }
         }
     }

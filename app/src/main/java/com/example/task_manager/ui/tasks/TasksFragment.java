@@ -34,6 +34,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
@@ -51,6 +52,7 @@ import com.example.task_manager.data.TagDao;
 import com.example.task_manager.data.TagEntity;
 import com.example.task_manager.ui.groups.GroupsActivity;
 import com.example.task_manager.ui.taskdetail.TaskDetailActivity;
+import com.example.task_manager.ui.common.UiStateViewModel;
 import com.example.task_manager.databinding.FragmentTasksBinding;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.checkbox.MaterialCheckBox;
@@ -80,6 +82,7 @@ public class TasksFragment extends Fragment {
     private GroupDao groupDao;
     private TagDao tagDao;
     private ExecutorService ioExecutor;
+    private UiStateViewModel uiState;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
     private final Paint swipePaint = new Paint();
     private int deleteBackgroundColor;
@@ -118,18 +121,16 @@ public class TasksFragment extends Fragment {
         subtaskDao = AppDatabase.getInstance(requireContext()).subtaskDao();
         groupDao = AppDatabase.getInstance(requireContext()).groupDao();
         tagDao = AppDatabase.getInstance(requireContext()).tagDao();
+        uiState = new ViewModelProvider(requireActivity()).get(UiStateViewModel.class);
         ioExecutor = Executors.newSingleThreadExecutor();
         preferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (savedInstanceState != null) {
-            currentQuery = savedInstanceState.getString(STATE_QUERY, "");
-        }
-        restoreSelectedGroup();
+        initializeState(savedInstanceState);
         hasAppliedInitialGroup = false;
         binding.emptyState.setVisibility(View.GONE);
         tagDao.observeAllOrdered().observe(getViewLifecycleOwner(), tags -> availableTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags));
         setupGroupSelector();
         setupRecyclerView();
-        observeTasks();
+        observeUiState();
         setupMenu();
         setupFab();
         applyWindowInsets();
@@ -188,11 +189,11 @@ public class TasksFragment extends Fragment {
 
     private void applyQuery(@Nullable String query) {
         String normalized = query == null ? "" : query.trim();
-        if (normalized.equals(currentQuery)) {
+        String stored = uiState.getSearchQuery().getValue();
+        if (normalized.equals(stored == null ? "" : stored)) {
             return;
         }
-        currentQuery = normalized;
-        observeTasks();
+        uiState.setSearchQuery(normalized);
     }
 
     private void setupFab() {
@@ -600,111 +601,27 @@ public class TasksFragment extends Fragment {
         binding.groupSelector.setOnItemClickListener((parent, view, position, id) -> {
             GroupItem item = groupAdapter.getItem(position);
             if (item != null) {
-                updateSelectedGroup(item.id, true);
+                uiState.setSelectedGroupId(item.id);
             }
         });
 
         groupDao.observeAllOrdered().observe(getViewLifecycleOwner(), groups -> {
             groupItems.clear();
-            groupItems.add(new GroupItem(null, getString(R.string.group_inbox)));
+            groupItems.add(new GroupItem(null, getString(R.string.group_inbox), null));
             if (groups != null) {
                 for (GroupEntity group : groups) {
-                    groupItems.add(new GroupItem(group.getId(), group.getName()));
+                    groupItems.add(new GroupItem(group.getId(), group.getName(), group.getColor()));
                 }
             }
             updateGroupAdapter();
-            if (!hasAppliedInitialGroup) {
-                applySelectionToDropdown(true);
-                hasAppliedInitialGroup = true;
-            } else {
-                ensureSelectedGroupExists();
-            }
+            applyInitialGroupSelectionIfNeeded();
         });
     }
 
     private void updateGroupAdapter() {
-        List<String> names = new ArrayList<>();
-        for (GroupItem item : groupItems) {
-            names.add(item.name);
-        }
         groupAdapter.clear();
         groupAdapter.addAll(groupItems);
         groupAdapter.notifyDataSetChanged();
-    }
-
-    private void updateSelectedGroup(@Nullable Long groupId, boolean fromUser) {
-        boolean changed = (selectedGroupId == null && groupId != null) || (selectedGroupId != null && !selectedGroupId.equals(groupId));
-        selectedGroupId = groupId;
-        saveSelectedGroup();
-        if (changed || fromUser) {
-            observeTasks();
-        }
-        if (!fromUser) {
-            applySelectionToDropdown(true);
-        }
-    }
-
-    private void ensureSelectedGroupExists() {
-        if (groupItems.isEmpty()) {
-            return;
-        }
-        boolean found = false;
-        for (GroupItem item : groupItems) {
-            if ((item.id == null && selectedGroupId == null)
-                    || (item.id != null && item.id.equals(selectedGroupId))) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            updateSelectedGroup(null, false);
-        }
-    }
-
-    private void applySelectionToDropdown(boolean triggerObserve) {
-        if (groupItems.isEmpty()) {
-            return;
-        }
-        Long previousSelection = selectedGroupId;
-        int index = 0;
-        boolean found = false;
-        for (int i = 0; i < groupItems.size(); i++) {
-            GroupItem item = groupItems.get(i);
-            if ((item.id == null && selectedGroupId == null) || (item.id != null && item.id.equals(selectedGroupId))) {
-                index = i;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            selectedGroupId = null;
-            saveSelectedGroup();
-            if (triggerObserve || previousSelection != null) {
-                observeTasks();
-            }
-        }
-        if (groupItems.size() > index) {
-            GroupItem selected = groupItems.get(index);
-            binding.groupSelector.setText(selected.name, false);
-        }
-    }
-
-    private void restoreSelectedGroup() {
-        if (preferences.contains(PREF_SELECTED_GROUP_ID)) {
-            selectedGroupId = preferences.getLong(PREF_SELECTED_GROUP_ID, 0);
-        } else {
-            selectedGroupId = null;
-        }
-    }
-
-    private void saveSelectedGroup() {
-        SharedPreferences.Editor editor = preferences.edit();
-        if (selectedGroupId == null) {
-            editor.remove(PREF_SELECTED_GROUP_ID);
-        } else {
-            editor.putLong(PREF_SELECTED_GROUP_ID, selectedGroupId);
-        }
-        editor.apply();
     }
 
     private void setupMenu() {
@@ -797,7 +714,13 @@ public class TasksFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        if (binding != null) {
+            binding.tasksList.setAdapter(null);
+            binding.groupSelector.setOnItemClickListener(null);
+        }
         binding = null;
+        adapter = null;
+        groupAdapter = null;
     }
 
     @Override
@@ -812,15 +735,93 @@ public class TasksFragment extends Fragment {
         @Nullable
         final Long id;
         final String name;
+        @Nullable
+        final Integer color;
 
-        GroupItem(@Nullable Long id, String name) {
+        GroupItem(@Nullable Long id, String name, @Nullable Integer color) {
             this.id = id;
             this.name = name;
+            this.color = color;
         }
 
         @Override
         public String toString() {
             return name;
         }
+    }
+    private void observeUiState() {
+        uiState.getSelectedGroupId().observe(getViewLifecycleOwner(), groupId -> {
+            selectedGroupId = groupId;
+            saveSelectedGroup(groupId);
+            observeTasks();
+        });
+        uiState.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
+            String normalized = query == null ? "" : query;
+            if (!normalized.equals(currentQuery)) {
+                currentQuery = normalized;
+                observeTasks();
+            }
+        });
+    }
+
+    private void applyInitialGroupSelectionIfNeeded() {
+        if (groupItems.isEmpty()) {
+            return;
+        }
+        boolean selectionExists = false;
+        for (GroupItem item : groupItems) {
+            if ((item.id == null && selectedGroupId == null)
+                    || (item.id != null && item.id.equals(selectedGroupId))) {
+                selectionExists = true;
+                break;
+            }
+        }
+        if (!hasAppliedInitialGroup || !selectionExists) {
+            if (!selectionExists) {
+                uiState.setSelectedGroupId(null);
+            }
+            GroupItem selected = findSelectedGroupItem();
+            if (selected != null) {
+                binding.groupSelector.setText(selected.name, false);
+            }
+            hasAppliedInitialGroup = true;
+        }
+    }
+
+    @Nullable
+    private GroupItem findSelectedGroupItem() {
+        for (GroupItem item : groupItems) {
+            if ((item.id == null && selectedGroupId == null)
+                    || (item.id != null && item.id.equals(selectedGroupId))) {
+                return item;
+            }
+        }
+        return groupItems.isEmpty() ? null : groupItems.get(0);
+    }
+
+    private void initializeState(@Nullable Bundle savedInstanceState) {
+        if (!uiState.isSelectedGroupInitialized()) {
+            Long restored = null;
+            if (preferences.contains(PREF_SELECTED_GROUP_ID)) {
+                restored = preferences.getLong(PREF_SELECTED_GROUP_ID, 0);
+            }
+            uiState.setSelectedGroupId(restored);
+        }
+        if (!uiState.isSearchQueryInitialized()) {
+            String restoredQuery = savedInstanceState == null ? "" : savedInstanceState.getString(STATE_QUERY, "");
+            uiState.setSearchQuery(restoredQuery);
+        }
+        currentQuery = uiState.getSearchQuery().getValue() == null ? "" : uiState.getSearchQuery().getValue();
+        selectedGroupId = uiState.getSelectedGroupId().getValue();
+    }
+
+    private void saveSelectedGroup(@Nullable Long groupId) {
+        SharedPreferences.Editor editor = preferences.edit();
+        if (groupId == null) {
+            editor.remove(PREF_SELECTED_GROUP_ID);
+        } else {
+            editor.putLong(PREF_SELECTED_GROUP_ID, groupId);
+        }
+        editor.apply();
     }
 }

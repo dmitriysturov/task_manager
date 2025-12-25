@@ -23,6 +23,13 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND dueAt BETWEEN :from AND :to ORDER BY dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneInRange(long from, long to);
 
+    @Query("SELECT t.*, COALESCE(g.name, :inboxName) AS groupName, g.color AS groupColor " +
+            "FROM tasks t LEFT JOIN groups g ON g.id = t.groupId " +
+            "WHERE t.done = 0 AND t.dueAt IS NOT NULL AND t.dueAt BETWEEN :from AND :to " +
+            "AND (:applyGroupFilter = 0 OR ((:groupIdFilter IS NULL AND t.groupId IS NULL) OR t.groupId = :groupIdFilter)) " +
+            "ORDER BY t.dueAt ASC, t.createdAt DESC")
+    LiveData<List<TaskWithGroup>> observeUndoneInRangeWithGroup(long from, long to, @Nullable Long groupIdFilter, int applyGroupFilter, String inboxName);
+
     @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneAll();
 
