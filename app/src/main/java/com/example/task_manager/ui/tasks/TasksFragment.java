@@ -74,6 +74,7 @@ public class TasksFragment extends Fragment {
 
     private static final String PREFS_NAME = "tasks_prefs";
     private static final String PREF_SELECTED_GROUP_ID = "selected_group_id";
+    private static final String PREF_SELECTED_GROUP_MODE = "selected_group_mode";
     private static final String STATE_QUERY = "state_query";
 
     private FragmentTasksBinding binding;
@@ -99,6 +100,8 @@ public class TasksFragment extends Fragment {
     private LiveData<List<TaskWithTagsAndSubtasks>> tasksLiveData;
     @Nullable
     private Long selectedGroupId;
+    @Nullable
+    private String selectedGroupMode;
     private ArrayAdapter<GroupItem> groupAdapter;
     private final List<GroupItem> groupItems = new ArrayList<>();
     private SharedPreferences preferences;
@@ -162,8 +165,18 @@ public class TasksFragment extends Fragment {
         boolean applyTags = !selectedTagFilter.isEmpty();
         List<Long> tagIds = new ArrayList<>(selectedTagFilter);
         int applyFlag = applyTags ? 1 : 0;
+        String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
         if (TextUtils.isEmpty(currentQuery)) {
+            if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
+                return taskDao.observeUndoneWithTagsAndSubtasksWithDeadline(applyFlag, tagIds);
+            }
             return taskDao.observeAllWithTagsAndSubtasksByGroup(selectedGroupId, applyFlag, tagIds);
+        }
+        if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
+            return taskDao.searchUndoneWithTagsAndSubtasksWithDeadline(currentQuery, applyFlag, tagIds);
+        }
+        if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
+            return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
         }
         if (selectedGroupId == null) {
             return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
@@ -308,7 +321,11 @@ public class TasksFragment extends Fragment {
                     }
                     if (existingTask == null) {
                         TaskEntity task = new TaskEntity(title, false, System.currentTimeMillis(), selectedDueAt[0]);
-                        task.setGroupId(selectedGroupId);
+                        if (UiStateViewModel.GROUP_MODE_GROUP.equals(selectedGroupMode)) {
+                            task.setGroupId(selectedGroupId);
+                        } else {
+                            task.setGroupId(null);
+                        }
                         ioExecutor.execute(() -> taskDao.insert(task));
                     } else {
                         existingTask.setTitle(title);
@@ -601,7 +618,15 @@ public class TasksFragment extends Fragment {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 GroupItem item = groupAdapter.getItem(position);
                 if (item != null) {
-                    uiState.setSelectedGroupId(item.id);
+                    if (item.isSystem) {
+                        if (item.systemType == GroupItem.SYSTEM_INBOX) {
+                            uiState.setSelectedGroup(UiStateViewModel.GROUP_MODE_INBOX, null);
+                        } else if (item.systemType == GroupItem.SYSTEM_DEADLINES) {
+                            uiState.setSelectedGroup(UiStateViewModel.GROUP_MODE_DEADLINES, null);
+                        }
+                    } else {
+                        uiState.setSelectedGroup(UiStateViewModel.GROUP_MODE_GROUP, item.id);
+                    }
                 }
             }
 
@@ -613,10 +638,11 @@ public class TasksFragment extends Fragment {
 
         groupDao.observeAllOrdered().observe(getViewLifecycleOwner(), groups -> {
             groupItems.clear();
-            groupItems.add(new GroupItem(null, getString(R.string.group_inbox), null));
+            groupItems.add(GroupItem.createSystem(getString(R.string.group_inbox), GroupItem.SYSTEM_INBOX));
+            groupItems.add(GroupItem.createSystem(getString(R.string.group_deadlines), GroupItem.SYSTEM_DEADLINES));
             if (groups != null) {
                 for (GroupEntity group : groups) {
-                    groupItems.add(new GroupItem(group.getId(), group.getName(), group.getColor()));
+                    groupItems.add(GroupItem.createGroup(group.getId(), group.getName(), group.getColor()));
                 }
             }
             updateGroupAdapter();
@@ -738,16 +764,32 @@ public class TasksFragment extends Fragment {
     }
 
     private static class GroupItem {
+        static final int SYSTEM_NONE = 0;
+        static final int SYSTEM_INBOX = 1;
+        static final int SYSTEM_DEADLINES = 2;
+
         @Nullable
         final Long id;
         final String name;
+        final boolean isSystem;
+        final int systemType;
         @Nullable
         final Integer color;
 
-        GroupItem(@Nullable Long id, String name, @Nullable Integer color) {
+        private GroupItem(@Nullable Long id, String name, boolean isSystem, int systemType, @Nullable Integer color) {
             this.id = id;
             this.name = name;
+            this.isSystem = isSystem;
+            this.systemType = systemType;
             this.color = color;
+        }
+
+        static GroupItem createSystem(String name, int systemType) {
+            return new GroupItem(null, name, true, systemType, null);
+        }
+
+        static GroupItem createGroup(@Nullable Long id, String name, @Nullable Integer color) {
+            return new GroupItem(id, name, false, SYSTEM_NONE, color);
         }
 
         @Override
@@ -758,9 +800,11 @@ public class TasksFragment extends Fragment {
     private void observeUiState() {
         uiState.getSelectedGroupId().observe(getViewLifecycleOwner(), groupId -> {
             selectedGroupId = groupId;
-            saveSelectedGroup(groupId);
-            observeTasks();
-            updateGroupSelectionText();
+            syncGroupSelection();
+        });
+        uiState.getSelectedGroupMode().observe(getViewLifecycleOwner(), mode -> {
+            selectedGroupMode = mode;
+            syncGroupSelection();
         });
         uiState.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
             String normalized = query == null ? "" : query;
@@ -771,21 +815,34 @@ public class TasksFragment extends Fragment {
         });
     }
 
+    private void syncGroupSelection() {
+        String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
+        if (UiStateViewModel.GROUP_MODE_GROUP.equals(mode) && selectedGroupId == null) {
+            return;
+        }
+        saveSelectedGroup(mode, selectedGroupId);
+        observeTasks();
+        updateGroupSelectionText();
+    }
+
     private void ensureSelectedGroupAvailable() {
         if (groupItems.isEmpty()) {
             return;
         }
-        boolean selectionExists = false;
-        for (GroupItem item : groupItems) {
-            if ((item.id == null && selectedGroupId == null)
-                    || (item.id != null && item.id.equals(selectedGroupId))) {
-                selectionExists = true;
-                break;
+        String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
+        if (UiStateViewModel.GROUP_MODE_GROUP.equals(mode)) {
+            boolean selectionExists = false;
+            for (GroupItem item : groupItems) {
+                if (!item.isSystem && item.id != null && item.id.equals(selectedGroupId)) {
+                    selectionExists = true;
+                    break;
+                }
             }
-        }
-        if (!selectionExists) {
-            uiState.setSelectedGroupId(null);
-            selectedGroupId = null;
+            if (!selectionExists) {
+                uiState.setSelectedGroup(UiStateViewModel.GROUP_MODE_INBOX, null);
+                selectedGroupMode = UiStateViewModel.GROUP_MODE_INBOX;
+                selectedGroupId = null;
+            }
         }
         updateGroupSelectionText();
     }
@@ -809,22 +866,42 @@ public class TasksFragment extends Fragment {
 
     @Nullable
     private GroupItem findSelectedGroupItem() {
+        String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
+        if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
+            return findSystemGroupItem(GroupItem.SYSTEM_DEADLINES);
+        }
+        if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
+            return findSystemGroupItem(GroupItem.SYSTEM_INBOX);
+        }
         for (GroupItem item : groupItems) {
-            if ((item.id == null && selectedGroupId == null)
-                    || (item.id != null && item.id.equals(selectedGroupId))) {
+            if (!item.isSystem && item.id != null && item.id.equals(selectedGroupId)) {
                 return item;
             }
         }
         return groupItems.isEmpty() ? null : groupItems.get(0);
     }
 
+    @Nullable
+    private GroupItem findSystemGroupItem(int systemType) {
+        for (GroupItem item : groupItems) {
+            if (item.isSystem && item.systemType == systemType) {
+                return item;
+            }
+        }
+        return null;
+    }
+
     private void initializeState(@Nullable Bundle savedInstanceState) {
         if (!uiState.isSelectedGroupInitialized()) {
-            Long restored = null;
-            if (preferences.contains(PREF_SELECTED_GROUP_ID)) {
-                restored = preferences.getLong(PREF_SELECTED_GROUP_ID, 0);
+            String restoredMode = preferences.getString(PREF_SELECTED_GROUP_MODE, UiStateViewModel.GROUP_MODE_INBOX);
+            if (restoredMode == null) {
+                restoredMode = UiStateViewModel.GROUP_MODE_INBOX;
             }
-            uiState.setSelectedGroupId(restored);
+            Long restoredId = null;
+            if (UiStateViewModel.GROUP_MODE_GROUP.equals(restoredMode) && preferences.contains(PREF_SELECTED_GROUP_ID)) {
+                restoredId = preferences.getLong(PREF_SELECTED_GROUP_ID, 0);
+            }
+            uiState.setSelectedGroup(restoredMode, restoredId);
         }
         if (!uiState.isSearchQueryInitialized()) {
             String restoredQuery = savedInstanceState == null ? "" : savedInstanceState.getString(STATE_QUERY, "");
@@ -832,14 +909,16 @@ public class TasksFragment extends Fragment {
         }
         currentQuery = uiState.getSearchQuery().getValue() == null ? "" : uiState.getSearchQuery().getValue();
         selectedGroupId = uiState.getSelectedGroupId().getValue();
+        selectedGroupMode = uiState.getSelectedGroupMode().getValue();
     }
 
-    private void saveSelectedGroup(@Nullable Long groupId) {
+    private void saveSelectedGroup(String mode, @Nullable Long groupId) {
         SharedPreferences.Editor editor = preferences.edit();
-        if (groupId == null) {
-            editor.remove(PREF_SELECTED_GROUP_ID);
-        } else {
+        editor.putString(PREF_SELECTED_GROUP_MODE, mode);
+        if (UiStateViewModel.GROUP_MODE_GROUP.equals(mode) && groupId != null) {
             editor.putLong(PREF_SELECTED_GROUP_ID, groupId);
+        } else {
+            editor.remove(PREF_SELECTED_GROUP_ID);
         }
         editor.apply();
     }

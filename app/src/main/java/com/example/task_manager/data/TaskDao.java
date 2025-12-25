@@ -33,11 +33,17 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY done ASC, dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> observeUndoneAll();
 
+    @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL ORDER BY dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> observeUndoneWithDeadline();
+
     @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> searchUndoneInInbox(String q);
 
     @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> searchUndoneInGroup(long groupId, String q);
+
+    @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt ASC, createdAt DESC")
+    LiveData<List<TaskEntity>> searchUndoneWithDeadline(String q);
 
     @Query("SELECT * FROM tasks WHERE done = 0 AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskEntity>> searchUndoneAll(String q);
@@ -73,10 +79,18 @@ public interface TaskDao {
     LiveData<List<TaskWithTagsAndSubtasks>> observeAllWithTagsAndSubtasksByGroup(@Nullable Long groupId, int applyTags, List<Long> tagIds);
 
     @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> observeUndoneWithTagsAndSubtasksWithDeadline(int applyTags, List<Long> tagIds);
+
+    @Transaction
     @Query("SELECT * FROM tasks WHERE done = 0 AND groupId IS NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInInbox(String q, int applyTags, List<Long> tagIds);
 
     @Transaction
     @Query("SELECT * FROM tasks WHERE done = 0 AND groupId = :groupId AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInGroup(long groupId, String q, int applyTags, List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY dueAt ASC, createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksWithDeadline(String q, int applyTags, List<Long> tagIds);
 }

@@ -65,6 +65,7 @@
     <string name="menu_groups">Группы…</string>
     <string name="group_selector_hint">Группа</string>
     <string name="group_inbox">Входящие</string>
+    <string name="group_deadlines">С дедлайном</string>
     <string name="groups_title">Группы</string>
     <string name="add_group">Добавить группу</string>
     <string name="group_name_hint">Название группы</string>

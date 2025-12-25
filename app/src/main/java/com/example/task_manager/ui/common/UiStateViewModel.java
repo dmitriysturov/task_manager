@@ -8,8 +8,12 @@ public class UiStateViewModel extends ViewModel {
 
     public static final String MODE_WEEK = "WEEK";
     public static final String MODE_DAY = "DAY";
+    public static final String GROUP_MODE_INBOX = "INBOX";
+    public static final String GROUP_MODE_GROUP = "GROUP";
+    public static final String GROUP_MODE_DEADLINES = "DEADLINES";
 
     private final MutableLiveData<Long> selectedGroupId = new MutableLiveData<>();
+    private final MutableLiveData<String> selectedGroupMode = new MutableLiveData<>();
     private final MutableLiveData<String> searchQuery = new MutableLiveData<>();
     private final MutableLiveData<String> calendarMode = new MutableLiveData<>();
     private final MutableLiveData<Integer> weekOffset = new MutableLiveData<>();
@@ -28,6 +32,7 @@ public class UiStateViewModel extends ViewModel {
         calendarMode.setValue(MODE_WEEK);
         weekOffset.setValue(0);
         dayOffset.setValue(0);
+        selectedGroupMode.setValue(GROUP_MODE_INBOX);
     }
 
     public MutableLiveData<Long> getSelectedGroupId() {
@@ -37,6 +42,21 @@ public class UiStateViewModel extends ViewModel {
     public void setSelectedGroupId(@Nullable Long groupId) {
         selectedGroupInitialized = true;
         selectedGroupId.setValue(groupId);
+    }
+
+    public MutableLiveData<String> getSelectedGroupMode() {
+        return selectedGroupMode;
+    }
+
+    public void setSelectedGroupMode(@Nullable String mode) {
+        selectedGroupInitialized = true;
+        selectedGroupMode.setValue(mode == null ? GROUP_MODE_INBOX : mode);
+    }
+
+    public void setSelectedGroup(String mode, @Nullable Long groupId) {
+        selectedGroupInitialized = true;
+        selectedGroupId.setValue(groupId);
+        selectedGroupMode.setValue(mode == null ? GROUP_MODE_INBOX : mode);
     }
 
     public boolean isSelectedGroupInitialized() {
