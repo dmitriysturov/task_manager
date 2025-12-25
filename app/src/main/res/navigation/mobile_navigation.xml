@@ -3,23 +3,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/nav_home">
+    app:startDestination="@+id/nav_tasks">
 
     <fragment
-        android:id="@+id/nav_home"
-        android:name="com.example.task_manager.ui.home.HomeFragment"
-        android:label="@string/menu_home"
-        tools:layout="@layout/fragment_home" />
-
+        android:id="@+id/nav_tasks"
+        android:name="com.example.task_manager.ui.tasks.TasksFragment"
+        android:label="@string/menu_tasks"
+        tools:layout="@layout/fragment_tasks" />
     <fragment
-        android:id="@+id/nav_gallery"
-        android:name="com.example.task_manager.ui.gallery.GalleryFragment"
-        android:label="@string/menu_gallery"
-        tools:layout="@layout/fragment_gallery" />
-
+        android:id="@+id/nav_calendar"
+        android:name="com.example.task_manager.ui.calendar.CalendarFragment"
+        android:label="@string/calendar_title"
+        tools:layout="@layout/fragment_calendar" />
     <fragment
-        android:id="@+id/nav_slideshow"
-        android:name="com.example.task_manager.ui.slideshow.SlideshowFragment"
-        android:label="@string/menu_slideshow"
-        tools:layout="@layout/fragment_slideshow" />
+        android:id="@+id/nav_archive"
+        android:name="com.example.task_manager.ui.archive.ArchiveFragment"
+        android:label="@string/archive_title"
+        tools:layout="@layout/fragment_archive" />
 </navigation>

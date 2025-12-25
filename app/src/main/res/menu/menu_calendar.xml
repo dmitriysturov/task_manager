@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_prev_range"
+        android:icon="@drawable/ic_arrow_back_24"
+        android:title="@string/calendar_prev"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_today"
+        android:title="@string/calendar_today"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_next_range"
+        android:icon="@drawable/ic_arrow_forward_24"
+        android:title="@string/calendar_next"
+        app:showAsAction="always" />
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/action_mode_week"
+            android:checkable="true"
+            android:title="@string/calendar_week_mode"
+            app:showAsAction="never" />
+        <item
+            android:id="@+id/action_mode_day"
+            android:checkable="true"
+            android:title="@string/calendar_day_mode"
+            app:showAsAction="never" />
+    </group>
+
+</menu>

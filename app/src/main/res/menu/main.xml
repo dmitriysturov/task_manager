@@ -2,8 +2,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:title="@string/action_settings"
+        android:id="@+id/nav_tasks"
+        android:title="@string/menu_tasks"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/nav_calendar"
+        android:title="@string/menu_calendar"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/nav_archive"
+        android:title="@string/menu_archive"
         app:showAsAction="never" />
 </menu>
