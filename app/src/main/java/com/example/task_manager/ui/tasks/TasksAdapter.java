@@ -55,6 +55,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     private final OnTaskClickListener clickListener;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
     private final Set<Long> expandedTaskIds = new HashSet<>();
+    private boolean showGroupName;
 
     public TasksAdapter(TaskDao taskDao, SubtaskDao subtaskDao, ExecutorService ioExecutor, OnTaskLongClickListener longClickListener, OnTaskClickListener clickListener) {
         this.taskDao = taskDao;
@@ -63,6 +64,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         this.longClickListener = longClickListener;
         this.clickListener = clickListener;
         setHasStableIds(true);
+    }
+
+    public void setShowGroupName(boolean showGroupName) {
+        if (this.showGroupName == showGroupName) {
+            return;
+        }
+        this.showGroupName = showGroupName;
+        notifyDataSetChanged();
     }
 
     public void submitList(List<TaskWithTagsAndSubtasks> newItems) {
@@ -109,6 +118,16 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             String noDeadline = holder.itemView.getContext().getString(R.string.no_deadline_label);
             holder.deadlineText.setText(noDeadline);
             holder.deadlineText.setTextColor(MaterialColors.getColor(holder.deadlineText, com.google.android.material.R.attr.colorOnSurfaceVariant));
+        }
+
+        if (showGroupName) {
+            String groupName = taskWithSubtasks.group != null
+                    ? taskWithSubtasks.group.getName()
+                    : holder.itemView.getContext().getString(R.string.group_ungrouped);
+            holder.groupText.setText(groupName);
+            holder.groupText.setVisibility(View.VISIBLE);
+        } else {
+            holder.groupText.setVisibility(View.GONE);
         }
 
         holder.checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -220,6 +239,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         final TextView title;
         final TextView deadlineText;
         final TextView createdText;
+        final TextView groupText;
         final ImageButton expandButton;
         final View subtasksContainer;
         final RecyclerView subtasksList;
@@ -233,6 +253,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             title = itemView.findViewById(R.id.task_title);
             deadlineText = itemView.findViewById(R.id.deadline_text);
             createdText = itemView.findViewById(R.id.created_text);
+            groupText = itemView.findViewById(R.id.task_group_text);
             expandButton = itemView.findViewById(R.id.expand_button);
             subtasksContainer = itemView.findViewById(R.id.subtasks_container);
             subtasksList = itemView.findViewById(R.id.subtasks_list);

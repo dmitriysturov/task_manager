@@ -170,13 +170,16 @@ public class TasksFragment extends Fragment {
             if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
                 return taskDao.observeUndoneWithTagsAndSubtasksWithDeadline(applyFlag, tagIds);
             }
+            if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
+                return taskDao.observeAllWithTagsAndSubtasks(applyFlag, tagIds);
+            }
             return taskDao.observeAllWithTagsAndSubtasksByGroup(selectedGroupId, applyFlag, tagIds);
         }
         if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
             return taskDao.searchUndoneWithTagsAndSubtasksWithDeadline(currentQuery, applyFlag, tagIds);
         }
         if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
-            return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
+            return taskDao.searchUndoneWithTagsAndSubtasksAll(currentQuery, applyFlag, tagIds);
         }
         if (selectedGroupId == null) {
             return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
@@ -819,6 +822,9 @@ public class TasksFragment extends Fragment {
         String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
         if (UiStateViewModel.GROUP_MODE_GROUP.equals(mode) && selectedGroupId == null) {
             return;
+        }
+        if (adapter != null) {
+            adapter.setShowGroupName(UiStateViewModel.GROUP_MODE_INBOX.equals(mode));
         }
         saveSelectedGroup(mode, selectedGroupId);
         observeTasks();

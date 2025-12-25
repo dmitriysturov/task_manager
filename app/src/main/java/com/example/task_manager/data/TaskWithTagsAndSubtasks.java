@@ -1,10 +1,10 @@
 package com.example.task_manager.data;
 
+import androidx.annotation.Nullable;
 import androidx.room.Embedded;
 import androidx.room.Junction;
 import androidx.room.Relation;
 
-import java.util.List;
 import java.util.List;
 
 public class TaskWithTagsAndSubtasks {
@@ -21,4 +21,8 @@ public class TaskWithTagsAndSubtasks {
             associateBy = @Junction(value = TaskTagCrossRef.class, parentColumn = "taskId", entityColumn = "tagId")
     )
     public List<TagEntity> tags;
+
+    @Nullable
+    @Relation(parentColumn = "groupId", entityColumn = "id")
+    public GroupEntity group;
 }

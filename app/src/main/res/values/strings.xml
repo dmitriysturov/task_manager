@@ -64,13 +64,14 @@
     <string name="task_snoozed_tomorrow">Задача перенесена на завтра</string>
     <string name="menu_groups">Группы…</string>
     <string name="group_selector_hint">Группа</string>
-    <string name="group_inbox">Входящие</string>
+    <string name="group_inbox">Все</string>
+    <string name="group_ungrouped">Без группы</string>
     <string name="group_deadlines">С дедлайном</string>
     <string name="groups_title">Группы</string>
     <string name="add_group">Добавить группу</string>
     <string name="group_name_hint">Название группы</string>
     <string name="rename_group">Переименовать группу</string>
-    <string name="delete_group_prompt">Удалить группу? Задачи перейдут во \"Входящие\".</string>
+    <string name="delete_group_prompt">Удалить группу? Задачи перейдут во \"Все\".</string>
     <string name="groups_empty">Группы не созданы</string>
     <string name="search_hint">Поиск задач</string>
     <string name="empty_search_title">Ничего не найдено</string>
