@@ -104,7 +104,6 @@ public class TasksFragment extends Fragment {
     private String currentQuery = "";
     private final Set<Long> selectedTagFilter = new HashSet<>();
     private List<TagEntity> availableTags = new ArrayList<>();
-    private boolean hasAppliedInitialGroup;
 
     @Nullable
     @Override
@@ -125,7 +124,6 @@ public class TasksFragment extends Fragment {
         ioExecutor = Executors.newSingleThreadExecutor();
         preferences = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         initializeState(savedInstanceState);
-        hasAppliedInitialGroup = false;
         binding.emptyState.setVisibility(View.GONE);
         tagDao.observeAllOrdered().observe(getViewLifecycleOwner(), tags -> availableTags = tags == null ? new ArrayList<>() : new ArrayList<>(tags));
         setupGroupSelector();
@@ -614,7 +612,7 @@ public class TasksFragment extends Fragment {
                 }
             }
             updateGroupAdapter();
-            applyInitialGroupSelectionIfNeeded();
+            ensureSelectedGroupAvailable();
         });
     }
 
@@ -754,6 +752,7 @@ public class TasksFragment extends Fragment {
             selectedGroupId = groupId;
             saveSelectedGroup(groupId);
             observeTasks();
+            updateGroupSelectionText();
         });
         uiState.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
             String normalized = query == null ? "" : query;
@@ -764,7 +763,7 @@ public class TasksFragment extends Fragment {
         });
     }
 
-    private void applyInitialGroupSelectionIfNeeded() {
+    private void ensureSelectedGroupAvailable() {
         if (groupItems.isEmpty()) {
             return;
         }
@@ -776,15 +775,24 @@ public class TasksFragment extends Fragment {
                 break;
             }
         }
-        if (!hasAppliedInitialGroup || !selectionExists) {
-            if (!selectionExists) {
-                uiState.setSelectedGroupId(null);
-            }
-            GroupItem selected = findSelectedGroupItem();
-            if (selected != null) {
-                binding.groupSelector.setText(selected.name, false);
-            }
-            hasAppliedInitialGroup = true;
+        if (!selectionExists) {
+            uiState.setSelectedGroupId(null);
+            selectedGroupId = null;
+        }
+        updateGroupSelectionText();
+    }
+
+    private void updateGroupSelectionText() {
+        if (binding == null || groupItems.isEmpty()) {
+            return;
+        }
+        GroupItem selected = findSelectedGroupItem();
+        if (selected == null) {
+            return;
+        }
+        CharSequence current = binding.groupSelector.getText();
+        if (!selected.name.contentEquals(current)) {
+            binding.groupSelector.setText(selected.name, false);
         }
     }
 
