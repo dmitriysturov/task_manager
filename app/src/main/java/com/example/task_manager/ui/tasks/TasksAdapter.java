@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -86,6 +87,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         return items.get(position);
     }
 
+    public TaskEntity getTaskAt(int position) {
+        return items.get(position).task;
+    }
+
     @NonNull
     @Override
     public TaskViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -98,6 +103,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
         TaskWithTagsAndSubtasks taskWithSubtasks = items.get(position);
         TaskEntity task = taskWithSubtasks.task;
         holder.title.setText(task.getTitle());
+        holder.pinnedIcon.setVisibility(task.isPinned() ? View.VISIBLE : View.GONE);
         holder.checkBox.setOnCheckedChangeListener(null);
         holder.checkBox.setChecked(task.isDone());
         Long dueAt = task.getDueAt();
@@ -237,6 +243,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
     class TaskViewHolder extends RecyclerView.ViewHolder {
         final MaterialCheckBox checkBox;
         final TextView title;
+        final ImageView pinnedIcon;
         final TextView deadlineText;
         final TextView createdText;
         final TextView groupText;
@@ -251,6 +258,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             super(itemView);
             checkBox = itemView.findViewById(R.id.task_checkbox);
             title = itemView.findViewById(R.id.task_title);
+            pinnedIcon = itemView.findViewById(R.id.pinned_icon);
             deadlineText = itemView.findViewById(R.id.deadline_text);
             createdText = itemView.findViewById(R.id.created_text);
             groupText = itemView.findViewById(R.id.task_group_text);
@@ -312,6 +320,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.TaskViewHold
             boolean subtasksEqual = areSubtasksSame(oldItem.subtasks, newItem.subtasks);
             boolean tagsEqual = areTagsSame(oldItem.tags, newItem.tags);
             return oldTask.isDone() == newTask.isDone()
+                    && oldTask.isPinned() == newTask.isPinned()
                     && oldTask.getTitle().equals(newTask.getTitle())
                     && ((oldTask.getDueAt() == null && newTask.getDueAt() == null) ||
                     (oldTask.getDueAt() != null && oldTask.getDueAt().equals(newTask.getDueAt())))

@@ -89,12 +89,13 @@ public class TasksFragment extends Fragment {
     private final Paint swipePaint = new Paint();
     private int deleteBackgroundColor;
     private int deleteIconColor;
-    private int completeBackgroundColor;
-    private int completeIconColor;
+    private int pinBackgroundColor;
+    private int pinIconColor;
+    private int unpinBackgroundColor;
+    private int unpinIconColor;
     private android.graphics.drawable.Drawable deleteIcon;
-    private android.graphics.drawable.Drawable checkIcon;
-    private android.graphics.drawable.Drawable undoIcon;
-    private android.graphics.drawable.Drawable scheduleIcon;
+    private android.graphics.drawable.Drawable pinIcon;
+    private android.graphics.drawable.Drawable unpinIcon;
 
     @Nullable
     private LiveData<List<TaskWithTagsAndSubtasks>> tasksLiveData;
@@ -414,12 +415,13 @@ public class TasksFragment extends Fragment {
     private void initSwipeResources() {
         deleteBackgroundColor = MaterialColors.getColor(binding.getRoot(), android.R.attr.colorError);
         deleteIconColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorOnError);
-        completeBackgroundColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorPrimaryContainer);
-        completeIconColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorOnPrimaryContainer);
+        pinBackgroundColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorPrimaryContainer);
+        pinIconColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorOnPrimaryContainer);
+        unpinBackgroundColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorSecondaryContainer);
+        unpinIconColor = MaterialColors.getColor(binding.getRoot(), com.google.android.material.R.attr.colorOnSecondaryContainer);
         deleteIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_delete_24);
-        checkIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_check_24);
-        undoIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_undo_24);
-        scheduleIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_schedule_24);
+        pinIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_pin_24);
+        unpinIcon = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_pin_off_24);
     }
 
     private void attachSwipeHelper(RecyclerView recyclerView) {
@@ -440,7 +442,7 @@ public class TasksFragment extends Fragment {
                 if (direction == ItemTouchHelper.LEFT) {
                     handleDeleteSwipe(taskWithSubtasks);
                 } else {
-                    handleRightSwipe(taskWithSubtasks.task, position);
+                    handlePinSwipe(taskWithSubtasks.task);
                 }
             }
 
@@ -478,84 +480,18 @@ public class TasksFragment extends Fragment {
                 .show();
     }
 
-    private void handleRightSwipe(TaskEntity task, int position) {
-        if (!task.isDone() && task.getDueAt() != null) {
-            showQuickActionsDialog(task, position);
-        } else {
-            toggleDone(task, position);
-        }
-    }
-
-    private void toggleDone(TaskEntity task, int position) {
-        boolean previous = task.isDone();
-        boolean updatedState = !previous;
+    private void handlePinSwipe(TaskEntity task) {
+        boolean wasPinned = task.isPinned();
         TaskEntity updated = copyTask(task, true);
-        updated.setDone(updatedState);
+        updated.setPinned(!wasPinned);
         ioExecutor.execute(() -> taskDao.update(updated));
-        Snackbar.make(binding.getRoot(), getString(updatedState ? R.string.task_marked_done : R.string.task_returned), Snackbar.LENGTH_LONG)
+        Snackbar.make(binding.getRoot(), getString(wasPinned ? R.string.task_unpinned : R.string.task_pinned), Snackbar.LENGTH_LONG)
                 .setAction(R.string.undo, v -> ioExecutor.execute(() -> {
                     TaskEntity revert = copyTask(task, true);
-                    revert.setDone(previous);
+                    revert.setPinned(wasPinned);
                     taskDao.update(revert);
                 }))
                 .show();
-        adapter.notifyItemChanged(position);
-    }
-
-    private void showQuickActionsDialog(TaskEntity task, int position) {
-        String[] options = new String[]{
-                getString(R.string.mark_done),
-                getString(R.string.snooze_one_hour),
-                getString(R.string.snooze_tomorrow)
-        };
-        new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.choose_quick_action)
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        toggleDone(task, position);
-                    } else if (which == 1) {
-                        snoozeTask(task, position, true);
-                    } else if (which == 2) {
-                        snoozeTask(task, position, false);
-                    }
-                })
-                .setOnDismissListener(dialog -> adapter.notifyItemChanged(position))
-                .setOnCancelListener(dialog -> adapter.notifyItemChanged(position))
-                .show();
-    }
-
-    private void snoozeTask(TaskEntity task, int position, boolean oneHour) {
-        Long currentDue = task.getDueAt();
-        if (currentDue == null) {
-            adapter.notifyItemChanged(position);
-            return;
-        }
-        long newDueAt;
-        int messageRes;
-        if (oneHour) {
-            newDueAt = currentDue + 60 * 60 * 1000;
-            messageRes = R.string.task_snoozed_hour;
-        } else {
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.DAY_OF_YEAR, 1);
-            calendar.set(Calendar.HOUR_OF_DAY, 9);
-            calendar.set(Calendar.MINUTE, 0);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-            newDueAt = calendar.getTimeInMillis();
-            messageRes = R.string.task_snoozed_tomorrow;
-        }
-        TaskEntity updated = copyTask(task, true);
-        updated.setDueAt(newDueAt);
-        ioExecutor.execute(() -> taskDao.update(updated));
-        Snackbar.make(binding.getRoot(), messageRes, Snackbar.LENGTH_LONG)
-                .setAction(R.string.undo, v -> ioExecutor.execute(() -> {
-                    TaskEntity revert = copyTask(task, true);
-                    revert.setDueAt(currentDue);
-                    taskDao.update(revert);
-                }))
-                .show();
-        adapter.notifyItemChanged(position);
     }
 
     private void drawSwipeDecoration(Canvas c, RecyclerView.ViewHolder viewHolder, float dX) {
@@ -564,23 +500,18 @@ public class TasksFragment extends Fragment {
         if (position == RecyclerView.NO_POSITION) {
             return;
         }
-        TaskEntity task = adapter.getItem(position).task;
+        TaskEntity task = adapter.getTaskAt(position);
         boolean isRight = dX > 0;
         int iconMargin = (int) (16 * getResources().getDisplayMetrics().density);
         int iconSize = (int) (24 * getResources().getDisplayMetrics().density);
-        swipePaint.setColor(isRight ? completeBackgroundColor : deleteBackgroundColor);
+        boolean isPinned = task.isPinned();
+        swipePaint.setColor(isRight ? (isPinned ? unpinBackgroundColor : pinBackgroundColor) : deleteBackgroundColor);
         float left = isRight ? itemView.getLeft() : itemView.getRight() + dX;
         float right = isRight ? itemView.getLeft() + dX : itemView.getRight();
         c.drawRect(left, itemView.getTop(), right, itemView.getBottom(), swipePaint);
         android.graphics.drawable.Drawable icon;
         if (isRight) {
-            if (task.isDone()) {
-                icon = undoIcon;
-            } else if (task.getDueAt() != null) {
-                icon = scheduleIcon;
-            } else {
-                icon = checkIcon;
-            }
+            icon = isPinned ? unpinIcon : pinIcon;
         } else {
             icon = deleteIcon;
         }
@@ -588,7 +519,7 @@ public class TasksFragment extends Fragment {
             return;
         }
         icon = icon.mutate();
-        icon.setTint(isRight ? completeIconColor : deleteIconColor);
+        icon.setTint(isRight ? (isPinned ? unpinIconColor : pinIconColor) : deleteIconColor);
         int iconTop = itemView.getTop() + (itemView.getHeight() - iconSize) / 2;
         int iconBottom = iconTop + iconSize;
         int iconLeft;
@@ -609,6 +540,7 @@ public class TasksFragment extends Fragment {
         if (keepId) {
             copy.setId(task.getId());
         }
+        copy.setPinned(task.isPinned());
         copy.setGroupId(task.getGroupId());
         return copy;
     }

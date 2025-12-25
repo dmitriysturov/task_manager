@@ -62,6 +62,8 @@
     <string name="choose_quick_action">Быстрое действие</string>
     <string name="task_snoozed_hour">Задача отложена на час</string>
     <string name="task_snoozed_tomorrow">Задача перенесена на завтра</string>
+    <string name="task_pinned">Закреплено</string>
+    <string name="task_unpinned">Откреплено</string>
     <string name="menu_groups">Группы…</string>
     <string name="group_selector_hint">Группа</string>
     <string name="group_inbox">Все</string>

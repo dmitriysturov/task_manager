@@ -29,9 +29,23 @@
         android:maxLines="2"
         android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
         android:textColor="?attr/colorOnSurface"
-        app:layout_constraintEnd_toStartOf="@+id/expand_button"
+        app:layout_constraintEnd_toStartOf="@+id/pinned_icon"
         app:layout_constraintStart_toEndOf="@id/task_checkbox"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/pinned_icon"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/task_pinned"
+        android:src="@drawable/ic_pin_24"
+        android:tint="?attr/colorOnSurfaceVariant"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/task_title"
+        app:layout_constraintEnd_toStartOf="@id/expand_button"
+        app:layout_constraintStart_toEndOf="@id/task_title"
+        app:layout_constraintTop_toTopOf="@id/task_title" />
 
     <LinearLayout
         android:id="@+id/meta_container"

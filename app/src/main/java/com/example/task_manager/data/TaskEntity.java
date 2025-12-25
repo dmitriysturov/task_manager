@@ -3,10 +3,11 @@ package com.example.task_manager.data;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "tasks")
+@Entity(tableName = "tasks", indices = {@Index("pinned")})
 public class TaskEntity {
 
     @PrimaryKey(autoGenerate = true)
@@ -16,6 +17,8 @@ public class TaskEntity {
     private String title;
 
     private boolean done;
+
+    private boolean pinned;
 
     public long createdAt;
 
@@ -40,6 +43,7 @@ public class TaskEntity {
     public TaskEntity(@NonNull String title, boolean done, long createdAt, @Nullable Long dueAt, @NonNull String description) {
         this.title = title;
         this.done = done;
+        this.pinned = false;
         this.createdAt = createdAt;
         this.dueAt = dueAt;
         this.description = description;
@@ -68,6 +72,14 @@ public class TaskEntity {
 
     public void setDone(boolean done) {
         this.done = done;
+    }
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
     }
 
     public long getCreatedAt() {
