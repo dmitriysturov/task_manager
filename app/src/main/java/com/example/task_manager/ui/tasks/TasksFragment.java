@@ -15,6 +15,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.graphics.Canvas;
@@ -595,11 +596,18 @@ public class TasksFragment extends Fragment {
     private void setupGroupSelector() {
         groupAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
         binding.groupSelector.setAdapter(groupAdapter);
-        binding.groupSelector.setOnClickListener(v -> binding.groupSelector.showDropDown());
-        binding.groupSelector.setOnItemClickListener((parent, view, position, id) -> {
-            GroupItem item = groupAdapter.getItem(position);
-            if (item != null) {
-                uiState.setSelectedGroupId(item.id);
+        binding.groupSelector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                GroupItem item = groupAdapter.getItem(position);
+                if (item != null) {
+                    uiState.setSelectedGroupId(item.id);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // No-op.
             }
         });
 
@@ -714,7 +722,7 @@ public class TasksFragment extends Fragment {
         super.onDestroyView();
         if (binding != null) {
             binding.tasksList.setAdapter(null);
-            binding.groupSelector.setOnItemClickListener(null);
+            binding.groupSelector.setOnItemSelectedListener(null);
         }
         binding = null;
         adapter = null;
@@ -790,9 +798,12 @@ public class TasksFragment extends Fragment {
         if (selected == null) {
             return;
         }
-        CharSequence current = binding.groupSelector.getText();
-        if (!selected.name.contentEquals(current)) {
-            binding.groupSelector.setText(selected.name, false);
+        int selectedPosition = groupAdapter.getPosition(selected);
+        if (selectedPosition == AdapterView.INVALID_POSITION) {
+            return;
+        }
+        if (binding.groupSelector.getSelectedItemPosition() != selectedPosition) {
+            binding.groupSelector.setSelection(selectedPosition);
         }
     }
 

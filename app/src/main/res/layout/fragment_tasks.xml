@@ -6,25 +6,25 @@
     android:background="?attr/colorSurface"
     android:padding="16dp">
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/group_selector_layout"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/group_selector_label"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="@string/group_selector_hint"
-        app:boxBackgroundMode="outline"
+        android:text="@string/group_selector_hint"
+        android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-            android:id="@+id/group_selector"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="none"
-            android:cursorVisible="false"
-            android:importantForAutofill="no" />
-    </com.google.android.material.textfield.TextInputLayout>
+    <androidx.appcompat.widget.AppCompatSpinner
+        android:id="@+id/group_selector"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:spinnerMode="dropdown"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/group_selector_label" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/tasks_list"
@@ -35,7 +35,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/group_selector_layout"
+        app:layout_constraintTop_toBottomOf="@id/group_selector"
         android:layout_marginTop="12dp" />
 
     <LinearLayout
@@ -48,7 +48,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/group_selector_layout">
+        app:layout_constraintTop_toBottomOf="@id/group_selector">
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/empty_title"
