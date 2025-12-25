@@ -22,10 +22,12 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/action_mode_week"
+            android:checkable="true"
             android:title="@string/calendar_week_mode"
             app:showAsAction="never" />
         <item
             android:id="@+id/action_mode_day"
+            android:checkable="true"
             android:title="@string/calendar_day_mode"
             app:showAsAction="never" />
     </group>
