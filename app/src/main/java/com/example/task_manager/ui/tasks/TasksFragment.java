@@ -26,8 +26,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.graphics.Insets;
 import androidx.core.view.MenuHost;
 import androidx.core.view.MenuProvider;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
@@ -127,6 +130,7 @@ public class TasksFragment extends Fragment {
         observeTasks();
         setupMenu();
         setupFab();
+        applyWindowInsets();
     }
 
     private void setupRecyclerView() {
@@ -709,6 +713,40 @@ public class TasksFragment extends Fragment {
                 return false;
             }
         }, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
+    }
+
+    private void applyWindowInsets() {
+        final int listPaddingStart = binding.tasksList.getPaddingStart();
+        final int listPaddingTop = binding.tasksList.getPaddingTop();
+        final int listPaddingEnd = binding.tasksList.getPaddingEnd();
+        final int listPaddingBottom = binding.tasksList.getPaddingBottom();
+
+        final int emptyPaddingStart = binding.emptyState.getPaddingStart();
+        final int emptyPaddingTop = binding.emptyState.getPaddingTop();
+        final int emptyPaddingEnd = binding.emptyState.getPaddingEnd();
+        final int emptyPaddingBottom = binding.emptyState.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
+            Insets systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            binding.tasksList.setPaddingRelative(
+                    listPaddingStart,
+                    listPaddingTop,
+                    listPaddingEnd,
+                    listPaddingBottom + systemInsets.bottom
+            );
+
+            binding.emptyState.setPaddingRelative(
+                    emptyPaddingStart,
+                    emptyPaddingTop,
+                    emptyPaddingEnd,
+                    emptyPaddingBottom + systemInsets.bottom
+            );
+
+            binding.fab.setTranslationY(-systemInsets.bottom);
+
+            return insets;
+        });
     }
 
     @Override

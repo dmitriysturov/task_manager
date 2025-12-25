@@ -14,6 +14,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.MenuHost;
 import androidx.core.view.MenuProvider;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
@@ -76,13 +79,13 @@ public class CalendarFragment extends Fragment {
         }
     }
 
-    @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         taskDao = AppDatabase.getInstance(requireContext()).taskDao();
         ioExecutor = Executors.newSingleThreadExecutor();
         setupRecyclerView();
         setupMenu();
+        applyWindowInsets();
         render();
     }
 
@@ -90,6 +93,38 @@ public class CalendarFragment extends Fragment {
         binding.calendarList.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new DaySectionsAdapter(taskDao, ioExecutor, task -> startActivity(TaskDetailActivity.createIntent(requireContext(), task.getId())));
         binding.calendarList.setAdapter(adapter);
+    }
+
+    private void applyWindowInsets() {
+        final int listPaddingStart = binding.calendarList.getPaddingStart();
+        final int listPaddingTop = binding.calendarList.getPaddingTop();
+        final int listPaddingEnd = binding.calendarList.getPaddingEnd();
+        final int listPaddingBottom = binding.calendarList.getPaddingBottom();
+
+        final int emptyPaddingStart = binding.calendarEmptyState.getPaddingStart();
+        final int emptyPaddingTop = binding.calendarEmptyState.getPaddingTop();
+        final int emptyPaddingEnd = binding.calendarEmptyState.getPaddingEnd();
+        final int emptyPaddingBottom = binding.calendarEmptyState.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
+            Insets systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            binding.calendarList.setPaddingRelative(
+                    listPaddingStart,
+                    listPaddingTop,
+                    listPaddingEnd,
+                    listPaddingBottom + systemInsets.bottom
+            );
+
+            binding.calendarEmptyState.setPaddingRelative(
+                    emptyPaddingStart,
+                    emptyPaddingTop,
+                    emptyPaddingEnd,
+                    emptyPaddingBottom + systemInsets.bottom
+            );
+
+            return insets;
+        });
     }
 
     private void setupMenu() {

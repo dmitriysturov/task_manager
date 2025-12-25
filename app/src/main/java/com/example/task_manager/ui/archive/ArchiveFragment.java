@@ -7,6 +7,9 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -65,12 +68,45 @@ public class ArchiveFragment extends Fragment {
         setupRecyclerView();
         setupToggle();
         observeData();
+        applyWindowInsets();
     }
 
     private void setupRecyclerView() {
         binding.archiveList.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new DaySectionsAdapter(taskDao, ioExecutor, task -> startActivity(TaskDetailActivity.createIntent(requireContext(), task.getId())));
         binding.archiveList.setAdapter(adapter);
+    }
+
+    private void applyWindowInsets() {
+        final int listPaddingStart = binding.archiveList.getPaddingStart();
+        final int listPaddingTop = binding.archiveList.getPaddingTop();
+        final int listPaddingEnd = binding.archiveList.getPaddingEnd();
+        final int listPaddingBottom = binding.archiveList.getPaddingBottom();
+
+        final int emptyPaddingStart = binding.archiveEmptyState.getPaddingStart();
+        final int emptyPaddingTop = binding.archiveEmptyState.getPaddingTop();
+        final int emptyPaddingEnd = binding.archiveEmptyState.getPaddingEnd();
+        final int emptyPaddingBottom = binding.archiveEmptyState.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
+            Insets systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            binding.archiveList.setPaddingRelative(
+                    listPaddingStart,
+                    listPaddingTop,
+                    listPaddingEnd,
+                    listPaddingBottom + systemInsets.bottom
+            );
+
+            binding.archiveEmptyState.setPaddingRelative(
+                    emptyPaddingStart,
+                    emptyPaddingTop,
+                    emptyPaddingEnd,
+                    emptyPaddingBottom + systemInsets.bottom
+            );
+
+            return insets;
+        });
     }
 
     private void setupToggle() {

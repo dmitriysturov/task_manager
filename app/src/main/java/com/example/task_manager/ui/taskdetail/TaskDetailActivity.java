@@ -19,6 +19,10 @@ import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.task_manager.R;
@@ -79,6 +83,7 @@ public class TaskDetailActivity extends AppCompatActivity {
             finish();
             return;
         }
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         binding = ActivityTaskDetailBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -87,6 +92,7 @@ public class TaskDetailActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
         binding.toolbar.setNavigationOnClickListener(v -> finish());
+        applyWindowInsets();
 
         taskDao = AppDatabase.getInstance(this).taskDao();
         subtaskDao = AppDatabase.getInstance(this).subtaskDao();
@@ -137,6 +143,41 @@ public class TaskDetailActivity extends AppCompatActivity {
             updateTagChips();
         });
     }
+
+    private void applyWindowInsets() {
+        final int appBarPaddingStart = binding.appBarLayout.getPaddingStart();
+        final int appBarPaddingTop = binding.appBarLayout.getPaddingTop();
+        final int appBarPaddingEnd = binding.appBarLayout.getPaddingEnd();
+        final int appBarPaddingBottom = binding.appBarLayout.getPaddingBottom();
+
+        final int scrollPaddingStart = binding.contentScroll.getPaddingStart();
+        final int scrollPaddingTop = binding.contentScroll.getPaddingTop();
+        final int scrollPaddingEnd = binding.contentScroll.getPaddingEnd();
+        final int scrollPaddingBottom = binding.contentScroll.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
+            Insets systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            binding.appBarLayout.setPaddingRelative(
+                    appBarPaddingStart,
+                    appBarPaddingTop + systemInsets.top,
+                    appBarPaddingEnd,
+                    appBarPaddingBottom
+            );
+
+            binding.contentScroll.setPaddingRelative(
+                    scrollPaddingStart,
+                    scrollPaddingTop,
+                    scrollPaddingEnd,
+                    scrollPaddingBottom + systemInsets.bottom
+            );
+
+            binding.addSubtaskFab.setTranslationY(-systemInsets.bottom);
+
+            return insets;
+        });
+    }
+
 
     private void showAddSubtaskDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_subtask, null, false);
