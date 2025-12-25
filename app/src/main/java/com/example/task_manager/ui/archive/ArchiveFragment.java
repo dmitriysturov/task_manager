@@ -18,6 +18,7 @@ import com.example.task_manager.R;
 import com.example.task_manager.data.AppDatabase;
 import com.example.task_manager.data.TaskDao;
 import com.example.task_manager.data.TaskEntity;
+import com.example.task_manager.data.TaskWithGroup;
 import com.example.task_manager.databinding.FragmentArchiveBinding;
 import com.example.task_manager.ui.calendar.DaySection;
 import com.example.task_manager.ui.calendar.DaySectionsAdapter;
@@ -46,10 +47,10 @@ public class ArchiveFragment extends Fragment {
     private ExecutorService ioExecutor;
     private DaySectionsAdapter adapter;
     private Filter filter = Filter.DONE_ONLY;
-    private LiveData<List<TaskEntity>> doneLiveData;
-    private LiveData<List<TaskEntity>> pastUndoneLiveData;
-    private final List<TaskEntity> doneTasksCache = new ArrayList<>();
-    private final List<TaskEntity> pastUndoneCache = new ArrayList<>();
+    private LiveData<List<TaskWithGroup>> doneLiveData;
+    private LiveData<List<TaskWithGroup>> pastUndoneLiveData;
+    private final List<TaskWithGroup> doneTasksCache = new ArrayList<>();
+    private final List<TaskWithGroup> pastUndoneCache = new ArrayList<>();
     private final ZoneId zoneId = ZoneId.systemDefault();
 
     @Nullable
@@ -126,8 +127,8 @@ public class ArchiveFragment extends Fragment {
 
     private void observeData() {
         long startOfToday = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli();
-        doneLiveData = taskDao.observeDoneAll();
-        pastUndoneLiveData = taskDao.observeUndoneInRange(0, startOfToday - 1);
+        doneLiveData = taskDao.observeDoneAllWithGroup(getString(R.string.group_inbox));
+        pastUndoneLiveData = taskDao.observeUndoneInRangeWithGroup(0, startOfToday - 1, null, 0, getString(R.string.group_inbox));
 
         doneLiveData.observe(getViewLifecycleOwner(), tasks -> {
             doneTasksCache.clear();
@@ -147,13 +148,17 @@ public class ArchiveFragment extends Fragment {
     }
 
     private void rebuildSections() {
-        List<TaskEntity> tasksForDisplay = new ArrayList<>();
+        List<TaskWithGroup> tasksForDisplay = new ArrayList<>();
         long startOfToday = LocalDate.now().atStartOfDay(zoneId).toInstant().toEpochMilli();
         if (filter == Filter.DONE_ONLY) {
             tasksForDisplay.addAll(doneTasksCache);
         } else {
-            for (TaskEntity done : doneTasksCache) {
-                long ts = done.getDueAt() != null ? done.getDueAt() : done.getCreatedAt();
+            for (TaskWithGroup done : doneTasksCache) {
+                TaskEntity task = done.task;
+                if (task == null) {
+                    continue;
+                }
+                long ts = task.getDueAt() != null ? task.getDueAt() : task.getCreatedAt();
                 if (ts < startOfToday) {
                     tasksForDisplay.add(done);
                 }
@@ -161,17 +166,20 @@ public class ArchiveFragment extends Fragment {
             tasksForDisplay.addAll(pastUndoneCache);
         }
 
-        tasksForDisplay.sort((a, b) -> Long.compare(getTaskTime(b), getTaskTime(a)));
+        tasksForDisplay.sort((a, b) -> Long.compare(getTaskTime(b.task), getTaskTime(a.task)));
 
-        Map<LocalDate, List<TaskEntity>> grouped = new HashMap<>();
-        for (TaskEntity task : tasksForDisplay) {
-            LocalDate day = LocalDate.ofInstant(Instant.ofEpochMilli(getTaskTime(task)), zoneId);
-            List<TaskEntity> bucket = grouped.get(day);
+        Map<LocalDate, List<TaskWithGroup>> grouped = new HashMap<>();
+        for (TaskWithGroup taskWithGroup : tasksForDisplay) {
+            if (taskWithGroup.task == null) {
+                continue;
+            }
+            LocalDate day = LocalDate.ofInstant(Instant.ofEpochMilli(getTaskTime(taskWithGroup.task)), zoneId);
+            List<TaskWithGroup> bucket = grouped.get(day);
             if (bucket == null) {
                 bucket = new ArrayList<>();
                 grouped.put(day, bucket);
             }
-            bucket.add(task);
+            bucket.add(taskWithGroup);
         }
 
         List<LocalDate> days = new ArrayList<>(grouped.keySet());
@@ -189,6 +197,9 @@ public class ArchiveFragment extends Fragment {
     }
 
     private long getTaskTime(TaskEntity task) {
+        if (task == null) {
+            return 0;
+        }
         return task.getDueAt() != null ? task.getDueAt() : task.getCreatedAt();
     }
 

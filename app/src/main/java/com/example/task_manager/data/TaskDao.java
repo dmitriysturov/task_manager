@@ -51,6 +51,11 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 1 ORDER BY COALESCE(dueAt, createdAt) DESC")
     LiveData<List<TaskEntity>> observeDoneAll();
 
+    @Query("SELECT t.*, COALESCE(g.name, :inboxName) AS groupName, g.color AS groupColor " +
+            "FROM tasks t LEFT JOIN groups g ON g.id = t.groupId " +
+            "WHERE t.done = 1 " +
+            "ORDER BY COALESCE(t.dueAt, t.createdAt) DESC")
+    LiveData<List<TaskWithGroup>> observeDoneAllWithGroup(String inboxName);
     @Insert
     long insert(TaskEntity task);
 

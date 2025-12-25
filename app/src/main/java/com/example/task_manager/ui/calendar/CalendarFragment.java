@@ -56,6 +56,9 @@ public class CalendarFragment extends Fragment {
     private final ZoneId zoneId = ZoneId.systemDefault();
     private final DateTimeFormatter dayTitleFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault());
     private Menu calendarMenu;
+    private int weekOffset = 0;
+    private int dayOffset = 0;
+
 
     @Nullable
     @Override
@@ -134,7 +137,6 @@ public class CalendarFragment extends Fragment {
                 updateModeMenu(menu);
             }
 
-            @Override
             @Override
             public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
                 int id = menuItem.getItemId();
@@ -259,15 +261,25 @@ public class CalendarFragment extends Fragment {
         currentTasksLiveData.observe(getViewLifecycleOwner(), tasks -> buildSections(tasks, startDay, endDay, includeEmptyDays));
     }
 
-    private void buildSections(@Nullable List<TaskWithGroup> tasks, LocalDate startDay, LocalDate endDay, boolean includeEmptyDays) {
+    private void buildSections(@Nullable List<TaskWithGroup> tasks,
+                               LocalDate startDay,
+                               LocalDate endDay,
+                               boolean includeEmptyDays) {
+
         Map<LocalDate, List<TaskWithGroup>> byDay = new HashMap<>();
+
         if (tasks != null) {
             for (TaskWithGroup taskWithGroup : tasks) {
                 if (taskWithGroup.task == null || taskWithGroup.task.getDueAt() == null) {
                     continue;
                 }
-                LocalDate date = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(taskWithGroup.task.getDueAt()), zoneId);
-                List<TaskWithGroup> dayTasks = byDay.get(cursor);
+
+                LocalDate date = LocalDate.ofInstant(
+                        java.time.Instant.ofEpochMilli(taskWithGroup.task.getDueAt()),
+                        zoneId
+                );
+
+                List<TaskWithGroup> list = byDay.get(date);
                 if (list == null) {
                     list = new ArrayList<>();
                     byDay.put(date, list);
@@ -277,16 +289,24 @@ public class CalendarFragment extends Fragment {
         }
 
         List<DaySection> sections = new ArrayList<>();
+
         LocalDate cursor = startDay;
         while (!cursor.isAfter(endDay)) {
-            List<TaskEntity> dayTasks = byDay.get(cursor);
+
+            List<TaskWithGroup> dayTasks = byDay.get(cursor);
+
             if (includeEmptyDays || (dayTasks != null && !dayTasks.isEmpty())) {
-                sections.add(new DaySection(cursor, dayTasks == null ? new ArrayList<>() : dayTasks));
+                sections.add(new DaySection(
+                        cursor,
+                        dayTasks == null ? new ArrayList<>() : dayTasks
+                ));
             }
+
             cursor = cursor.plusDays(1);
         }
 
         adapter.submitList(sections);
+
         boolean hasTasks = tasks != null && !tasks.isEmpty();
         binding.calendarEmptyState.setVisibility(hasTasks ? View.GONE : View.VISIBLE);
     }
