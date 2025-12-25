@@ -75,7 +75,7 @@
     <string name="rename_group">Переименовать группу</string>
     <string name="delete_group_prompt">Удалить группу? Задачи перейдут во \"Все\".</string>
     <string name="groups_empty">Группы не созданы</string>
-    <string name="search_hint">Поиск задач</string>
+    <string name="search_hint">Поиск (текст и #теги)</string>
     <string name="empty_search_title">Ничего не найдено</string>
     <string name="empty_search_subtitle">Попробуйте изменить запрос</string>
     <string name="tags_header">Теги</string>

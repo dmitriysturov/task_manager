@@ -100,4 +100,81 @@ public interface TaskDao {
     @Transaction
     @Query("SELECT * FROM tasks WHERE done = 0 AND dueAt IS NOT NULL AND (title LIKE '%'||:q||'%' OR description LIKE '%'||:q||'%') AND (:applyTags = 0 OR id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) ORDER BY pinned DESC, dueAt ASC, createdAt DESC")
     LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksWithDeadline(String q, int applyTags, List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT t.* FROM tasks t " +
+            "JOIN task_tags tt ON tt.taskId = t.id " +
+            "JOIN tags tag ON tag.id = tt.tagId " +
+            "WHERE t.done = 0 AND t.groupId IS NULL " +
+            "AND (:applyText = 0 OR (t.title LIKE '%'||:q||'%' OR t.description LIKE '%'||:q||'%')) " +
+            "AND (:applyTags = 0 OR t.id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) " +
+            "AND LOWER(TRIM(tag.name)) IN (:tagNames) " +
+            "GROUP BY t.id " +
+            "HAVING COUNT(DISTINCT LOWER(TRIM(tag.name))) = :tagCount " +
+            "ORDER BY t.pinned DESC, t.dueAt IS NULL, t.dueAt ASC, t.createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInInboxByTagNames(
+            String q,
+            int applyText,
+            List<String> tagNames,
+            int tagCount,
+            int applyTags,
+            List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT t.* FROM tasks t " +
+            "JOIN task_tags tt ON tt.taskId = t.id " +
+            "JOIN tags tag ON tag.id = tt.tagId " +
+            "WHERE t.done = 0 AND t.groupId = :groupId " +
+            "AND (:applyText = 0 OR (t.title LIKE '%'||:q||'%' OR t.description LIKE '%'||:q||'%')) " +
+            "AND (:applyTags = 0 OR t.id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) " +
+            "AND LOWER(TRIM(tag.name)) IN (:tagNames) " +
+            "GROUP BY t.id " +
+            "HAVING COUNT(DISTINCT LOWER(TRIM(tag.name))) = :tagCount " +
+            "ORDER BY t.pinned DESC, t.dueAt IS NULL, t.dueAt ASC, t.createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksInGroupByTagNames(
+            long groupId,
+            String q,
+            int applyText,
+            List<String> tagNames,
+            int tagCount,
+            int applyTags,
+            List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT t.* FROM tasks t " +
+            "JOIN task_tags tt ON tt.taskId = t.id " +
+            "JOIN tags tag ON tag.id = tt.tagId " +
+            "WHERE t.done = 0 " +
+            "AND (:applyText = 0 OR (t.title LIKE '%'||:q||'%' OR t.description LIKE '%'||:q||'%')) " +
+            "AND (:applyTags = 0 OR t.id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) " +
+            "AND LOWER(TRIM(tag.name)) IN (:tagNames) " +
+            "GROUP BY t.id " +
+            "HAVING COUNT(DISTINCT LOWER(TRIM(tag.name))) = :tagCount " +
+            "ORDER BY t.pinned DESC, t.dueAt IS NULL, t.dueAt ASC, t.createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksAllByTagNames(
+            String q,
+            int applyText,
+            List<String> tagNames,
+            int tagCount,
+            int applyTags,
+            List<Long> tagIds);
+
+    @Transaction
+    @Query("SELECT t.* FROM tasks t " +
+            "JOIN task_tags tt ON tt.taskId = t.id " +
+            "JOIN tags tag ON tag.id = tt.tagId " +
+            "WHERE t.done = 0 AND t.dueAt IS NOT NULL " +
+            "AND (:applyText = 0 OR (t.title LIKE '%'||:q||'%' OR t.description LIKE '%'||:q||'%')) " +
+            "AND (:applyTags = 0 OR t.id IN (SELECT taskId FROM task_tags WHERE tagId IN (:tagIds))) " +
+            "AND LOWER(TRIM(tag.name)) IN (:tagNames) " +
+            "GROUP BY t.id " +
+            "HAVING COUNT(DISTINCT LOWER(TRIM(tag.name))) = :tagCount " +
+            "ORDER BY t.pinned DESC, t.dueAt ASC, t.createdAt DESC")
+    LiveData<List<TaskWithTagsAndSubtasks>> searchUndoneWithTagsAndSubtasksWithDeadlineByTagNames(
+            String q,
+            int applyText,
+            List<String> tagNames,
+            int tagCount,
+            int applyTags,
+            List<Long> tagIds);
 }

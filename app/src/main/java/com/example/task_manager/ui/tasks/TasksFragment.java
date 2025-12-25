@@ -107,6 +107,8 @@ public class TasksFragment extends Fragment {
     private final List<GroupItem> groupItems = new ArrayList<>();
     private SharedPreferences preferences;
     private String currentQuery = "";
+    private String currentTextQuery = "";
+    private List<String> currentTagNames = new ArrayList<>();
     private final Set<Long> selectedTagFilter = new HashSet<>();
     private List<TagEntity> availableTags = new ArrayList<>();
 
@@ -166,35 +168,52 @@ public class TasksFragment extends Fragment {
         boolean applyTags = !selectedTagFilter.isEmpty();
         List<Long> tagIds = new ArrayList<>(selectedTagFilter);
         int applyFlag = applyTags ? 1 : 0;
+        boolean hasTagNames = currentTagNames != null && !currentTagNames.isEmpty();
+        boolean hasTextQuery = !TextUtils.isEmpty(currentTextQuery);
         String mode = selectedGroupMode == null ? UiStateViewModel.GROUP_MODE_INBOX : selectedGroupMode;
-        if (TextUtils.isEmpty(currentQuery)) {
+        if (!hasTagNames) {
+            if (TextUtils.isEmpty(currentTextQuery)) {
+                if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
+                    return taskDao.observeUndoneWithTagsAndSubtasksWithDeadline(applyFlag, tagIds);
+                }
+                if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
+                    return taskDao.observeAllWithTagsAndSubtasks(applyFlag, tagIds);
+                }
+                return taskDao.observeAllWithTagsAndSubtasksByGroup(selectedGroupId, applyFlag, tagIds);
+            }
             if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
-                return taskDao.observeUndoneWithTagsAndSubtasksWithDeadline(applyFlag, tagIds);
+                return taskDao.searchUndoneWithTagsAndSubtasksWithDeadline(currentTextQuery, applyFlag, tagIds);
             }
             if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
-                return taskDao.observeAllWithTagsAndSubtasks(applyFlag, tagIds);
+                return taskDao.searchUndoneWithTagsAndSubtasksAll(currentTextQuery, applyFlag, tagIds);
             }
-            return taskDao.observeAllWithTagsAndSubtasksByGroup(selectedGroupId, applyFlag, tagIds);
+            if (selectedGroupId == null) {
+                return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentTextQuery, applyFlag, tagIds);
+            }
+            return taskDao.searchUndoneWithTagsAndSubtasksInGroup(selectedGroupId, currentTextQuery, applyFlag, tagIds);
         }
+        int applyTextFlag = hasTextQuery ? 1 : 0;
+        int tagCount = currentTagNames.size();
         if (UiStateViewModel.GROUP_MODE_DEADLINES.equals(mode)) {
-            return taskDao.searchUndoneWithTagsAndSubtasksWithDeadline(currentQuery, applyFlag, tagIds);
+            return taskDao.searchUndoneWithTagsAndSubtasksWithDeadlineByTagNames(currentTextQuery, applyTextFlag, currentTagNames, tagCount, applyFlag, tagIds);
         }
         if (UiStateViewModel.GROUP_MODE_INBOX.equals(mode)) {
-            return taskDao.searchUndoneWithTagsAndSubtasksAll(currentQuery, applyFlag, tagIds);
+            return taskDao.searchUndoneWithTagsAndSubtasksAllByTagNames(currentTextQuery, applyTextFlag, currentTagNames, tagCount, applyFlag, tagIds);
         }
         if (selectedGroupId == null) {
-            return taskDao.searchUndoneWithTagsAndSubtasksInInbox(currentQuery, applyFlag, tagIds);
+            return taskDao.searchUndoneWithTagsAndSubtasksInInboxByTagNames(currentTextQuery, applyTextFlag, currentTagNames, tagCount, applyFlag, tagIds);
         }
-        return taskDao.searchUndoneWithTagsAndSubtasksInGroup(selectedGroupId, currentQuery, applyFlag, tagIds);
+        return taskDao.searchUndoneWithTagsAndSubtasksInGroupByTagNames(selectedGroupId, currentTextQuery, applyTextFlag, currentTagNames, tagCount, applyFlag, tagIds);
     }
 
     private void updateEmptyStateText(boolean isEmpty) {
+        boolean hasSearchFilters = !TextUtils.isEmpty(currentTextQuery) || (currentTagNames != null && !currentTagNames.isEmpty());
         if (!isEmpty) {
             binding.emptyTitle.setText(R.string.empty_tasks_title);
             binding.emptySubtitle.setText(R.string.empty_tasks_subtitle);
             return;
         }
-        if (TextUtils.isEmpty(currentQuery)) {
+        if (!hasSearchFilters) {
             binding.emptyTitle.setText(R.string.empty_tasks_title);
             binding.emptySubtitle.setText(R.string.empty_tasks_subtitle);
         } else {
@@ -743,10 +762,9 @@ public class TasksFragment extends Fragment {
         });
         uiState.getSearchQuery().observe(getViewLifecycleOwner(), query -> {
             String normalized = query == null ? "" : query;
-            if (!normalized.equals(currentQuery)) {
-                currentQuery = normalized;
-                observeTasks();
-            }
+            String parsedTextQuery = uiState.getSearchTextQuery().getValue();
+            List<String> parsedTagNames = uiState.getSearchTagNames().getValue();
+            updateSearchState(normalized, parsedTextQuery, parsedTagNames);
         });
     }
 
@@ -846,8 +864,32 @@ public class TasksFragment extends Fragment {
             uiState.setSearchQuery(restoredQuery);
         }
         currentQuery = uiState.getSearchQuery().getValue() == null ? "" : uiState.getSearchQuery().getValue();
+        currentTextQuery = uiState.getSearchTextQuery().getValue() == null ? "" : uiState.getSearchTextQuery().getValue();
+        List<String> parsedTags = uiState.getSearchTagNames().getValue();
+        currentTagNames = parsedTags == null ? new ArrayList<>() : new ArrayList<>(parsedTags);
         selectedGroupId = uiState.getSelectedGroupId().getValue();
         selectedGroupMode = uiState.getSelectedGroupMode().getValue();
+    }
+
+    private void updateSearchState(String rawQuery, @Nullable String parsedTextQuery, @Nullable List<String> parsedTagNames) {
+        boolean changed = false;
+        if (!rawQuery.equals(currentQuery)) {
+            currentQuery = rawQuery;
+            changed = true;
+        }
+        String normalizedText = parsedTextQuery == null ? "" : parsedTextQuery;
+        if (!normalizedText.equals(currentTextQuery)) {
+            currentTextQuery = normalizedText;
+            changed = true;
+        }
+        List<String> normalizedTags = parsedTagNames == null ? new ArrayList<>() : new ArrayList<>(parsedTagNames);
+        if (!normalizedTags.equals(currentTagNames)) {
+            currentTagNames = normalizedTags;
+            changed = true;
+        }
+        if (changed) {
+            observeTasks();
+        }
     }
 
     private void saveSelectedGroup(String mode, @Nullable Long groupId) {
